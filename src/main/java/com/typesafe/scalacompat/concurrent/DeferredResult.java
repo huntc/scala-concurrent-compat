@@ -16,17 +16,19 @@ import com.typesafe.scalacompat.util.function.*;
  */
 public interface DeferredResult<T> {
 
-    /* Creational methods */
+    /* Creational methods - static */
 
     /**
      * Produces a future result.
      */
-    <T> DeferredResult<T> of(Supplier<T> supplier);
+    DeferredResult<T> of(Supplier<T> supplier);
 
     /**
      * Produces a future result of a sequence of actions.
      */
-    <T> DeferredResult<T> of(Supplier<T>... suppliers);
+    DeferredResult<T> of(Supplier<T>... suppliers);
+
+    DeferredResult<T> of(Iterable<Supplier<T>> suppliers);
 
     /**
      * Creates an already completed result with the specified exception.
@@ -38,6 +40,55 @@ public interface DeferredResult<T> {
      */
     DeferredResult<T> successful(T t);
 
+    /* Traversing methods - static */
+
+    /**
+     * Returns a `Future` to the result of the first future in the list that is completed.
+     */
+    DeferredResult<T> firstCompletedOf(DeferredResult<T>... futures);
+
+    DeferredResult<T> firstCompletedOf(Iterable<DeferredResult<T>> futures);
+
+    /**
+     * Returns a `Future` that will hold the optional result of the first `Future` with a result that matches the predicate.
+     */
+    DeferredResult<Optional<T>> find(Predicate<? super T> predicate, DeferredResult<T>... futures);
+
+    DeferredResult<Optional<T>> find(Predicate<? super T> predicate, Iterable<DeferredResult<T>> futures);
+
+    /**
+     * A non-blocking fold over the specified futures, with the start value of the given zero.
+     * The fold is performed on the thread where the last future is completed,
+     * the result will be the first failure of any of the futures, or any failure in the actual fold,
+     * or the result of the fold.
+     */
+    <R> DeferredResult<T> fold(Function<? super T, ? extends R> zero,
+                               BiFunction<? super R, ? super T, ? extends R> folder,
+                               DeferredResult<T>... futures);
+
+    <R> DeferredResult<T> fold(Function<? super T, ? extends R> zero,
+                               BiFunction<? super R, ? super T, ? extends R> folder,
+                               Iterable<DeferredResult<T>> futures);
+
+    /**
+     * Initiates a fold over the supplied futures where the fold-zero is the result value of the `Future`
+     * that's completed first.
+     */
+    <R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
+                                 DeferredResult<T>... futures);
+
+    <R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
+                                 Iterable<DeferredResult<T>> futures);
+
+    /**
+     * Transforms a list of values into a list of futures produced using that value.
+     * This is useful for performing a parallel map.
+     */
+    <A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
+                                             Function<? super A, DeferredResult<? extends T>>... suppliers);
+
+    <A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
+                                             Function<? super A, Iterable<DeferredResult<? extends T>>> suppliers);
     /* Instance methods */
 
     /**
@@ -199,5 +250,4 @@ public interface DeferredResult<T> {
     DeferredResult<T> andThen(Consumer<? super T> action);
 
 }
-// TODO: Add:
-// static methods: firstCompletedOf, find, fold, reduce, traverse
+
