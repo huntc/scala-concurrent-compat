@@ -36,7 +36,7 @@ public interface DeferredResult<T> {
      * <p/>
      * The action may be performed at whatever time and in whatever thread the library chooses.
      */
-    void onFailure(Consumer<T> action);
+    void onFailure(Runnable action);
 
     /**
      * When this result is completed, either through an exception, or a value,
@@ -47,7 +47,7 @@ public interface DeferredResult<T> {
      * <p/>
      * The action may be performed at whatever time and in whatever thread the library chooses.
      */
-    void onComplete(Consumer<T> action);
+    void onComplete(Runnable action);
 
     /**
      * Returns whether the result has already been completed with
