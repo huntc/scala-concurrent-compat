@@ -28,8 +28,6 @@ public interface DeferredResult<T> {
      */
     DeferredResult<T> of(Supplier<T>... suppliers);
 
-    DeferredResult<T> of(Iterable<Supplier<T>> suppliers);
-
     /**
      * Creates an already completed result with the specified exception.
      */
@@ -47,14 +45,10 @@ public interface DeferredResult<T> {
      */
     DeferredResult<T> firstCompletedOf(DeferredResult<T>... futures);
 
-    DeferredResult<T> firstCompletedOf(Iterable<DeferredResult<T>> futures);
-
     /**
      * Returns a `Future` that will hold the optional result of the first `Future` with a result that matches the predicate.
      */
     DeferredResult<Optional<T>> find(Predicate<? super T> predicate, DeferredResult<T>... futures);
-
-    DeferredResult<Optional<T>> find(Predicate<? super T> predicate, Iterable<DeferredResult<T>> futures);
 
     /**
      * A non-blocking fold over the specified futures, with the start value of the given zero.
@@ -66,19 +60,12 @@ public interface DeferredResult<T> {
                                BiFunction<? super R, ? super T, ? extends R> folder,
                                DeferredResult<T>... futures);
 
-    <R> DeferredResult<T> fold(Function<? super T, ? extends R> zero,
-                               BiFunction<? super R, ? super T, ? extends R> folder,
-                               Iterable<DeferredResult<T>> futures);
-
     /**
      * Initiates a fold over the supplied futures where the fold-zero is the result value of the `Future`
      * that's completed first.
      */
     <R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
                                  DeferredResult<T>... futures);
-
-    <R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
-                                 Iterable<DeferredResult<T>> futures);
 
     /**
      * Transforms a list of values into a list of futures produced using that value.
@@ -87,8 +74,6 @@ public interface DeferredResult<T> {
     <A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
                                              Function<? super A, DeferredResult<? extends T>>... suppliers);
 
-    <A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
-                                             Function<? super A, Iterable<DeferredResult<? extends T>>> suppliers);
     /* Instance methods */
 
     /**
