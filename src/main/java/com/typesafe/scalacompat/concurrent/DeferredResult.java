@@ -3,6 +3,8 @@ package com.typesafe.scalacompat.concurrent;
 import com.typesafe.scalacompat.util.Optional;
 import com.typesafe.scalacompat.util.function.*;
 
+import java.util.concurrent.Executor;
+
 /**
  * A DeferredResult is a Future that can be observed. Actions are provided
  * to execute when the results of operations are available.
@@ -10,7 +12,9 @@ import com.typesafe.scalacompat.util.function.*;
  * DeferredResults are similar to Futures except their results cannot
  * be blocked for.
  * </p>
- * Actions are performed at whatever time and in whatever thread the library chooses.
+ * Actions are performed at whatever time and in whatever thread the library chooses unless an
+ * Executor is supplied.
+ * <p/>
  *
  * @param <T> to type of result to produce.
  */
@@ -23,10 +27,14 @@ public interface DeferredResult<T> {
      */
     DeferredResult<T> of(Supplier<T> supplier);
 
+    DeferredResult<T> of(Executor executor, Supplier<T> supplier);
+
     /**
      * Produces a future result of a sequence of actions.
      */
     DeferredResult<T> of(Supplier<T>... suppliers);
+
+    DeferredResult<T> of(Executor executor, Supplier<T>... suppliers);
 
     /**
      * Creates an already completed result with the specified exception.
@@ -45,10 +53,14 @@ public interface DeferredResult<T> {
      */
     DeferredResult<T> firstCompletedOf(DeferredResult<T>... futures);
 
+    DeferredResult<T> firstCompletedOf(Executor executor, DeferredResult<T>... futures);
+
     /**
      * Returns a `Future` that will hold the optional result of the first `Future` with a result that matches the predicate.
      */
     DeferredResult<Optional<T>> find(Predicate<? super T> predicate, DeferredResult<T>... futures);
+
+    DeferredResult<Optional<T>> find(Executor executor, Predicate<? super T> predicate, DeferredResult<T>... futures);
 
     /**
      * A non-blocking fold over the specified futures, with the start value of the given zero.
@@ -60,6 +72,11 @@ public interface DeferredResult<T> {
                                BiFunction<? super R, ? super T, ? extends R> folder,
                                DeferredResult<T>... futures);
 
+    <R> DeferredResult<T> fold(Executor executor,
+                               Function<? super T, ? extends R> zero,
+                               BiFunction<? super R, ? super T, ? extends R> folder,
+                               DeferredResult<T>... futures);
+
     /**
      * Initiates a fold over the supplied futures where the fold-zero is the result value of the `Future`
      * that's completed first.
@@ -67,11 +84,19 @@ public interface DeferredResult<T> {
     <R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
                                  DeferredResult<T>... futures);
 
+    <R> DeferredResult<T> reduce(Executor executor,
+                                 BiFunction<? super R, ? super T, ? extends R> folder,
+                                 DeferredResult<T>... futures);
+
     /**
      * Transforms a list of values into a list of futures produced using that value.
      * This is useful for performing a parallel map.
      */
     <A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
+                                             Function<? super A, DeferredResult<? extends T>>... suppliers);
+
+    <A> Iterable<DeferredResult<T>> traverse(Executor executor,
+                                             Iterable<A> collection,
                                              Function<? super A, DeferredResult<? extends T>>... suppliers);
 
     /* Instance methods */
@@ -85,6 +110,8 @@ public interface DeferredResult<T> {
      */
     void onSuccess(Consumer<? super T> action);
 
+    void onSuccess(Consumer<? super T> action, Executor executor);
+
     /**
      * When this future is completed with a failure (i.e. with a throwable),
      * apply the provided callback to the throwable.
@@ -96,6 +123,8 @@ public interface DeferredResult<T> {
      */
     void onFailure(Consumer<? super Throwable> failure);
 
+    void onFailure(Consumer<? super Throwable> failure, Executor executor);
+
     /**
      * When this future result is completed, either through an exception, or a value,
      * apply the provided action.
@@ -104,6 +133,8 @@ public interface DeferredResult<T> {
      * this will either be applied immediately or be scheduled asynchronously.
      */
     void onComplete(Runnable action);
+
+    void onComplete(Runnable action, Executor executor);
 
     /* Miscellaneous */
 
@@ -143,6 +174,8 @@ public interface DeferredResult<T> {
      */
     void forEach(Consumer<? super T> action);
 
+    void forEach(Consumer<? super T> action, Executor executor);
+
     /**
      * Creates a new future by applying the transformer to the successful result of
      * this future, or the failure to the failed result. If there is any non-fatal
@@ -152,6 +185,10 @@ public interface DeferredResult<T> {
     <R> DeferredResult<R> transform(Function<? super T, ? extends R> transformer,
                                     Function<? super Throwable, ? super Throwable> failure);
 
+    <R> DeferredResult<R> transform(Function<? super T, ? extends R> transformer,
+                                    Function<? super Throwable, ? super Throwable> failure,
+                                    Executor executor);
+
     /**
      * Creates a new future by applying a function to the successful result of
      * this future. If this future is completed with an exception then the new
@@ -159,11 +196,19 @@ public interface DeferredResult<T> {
      */
     <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper);
 
+    <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper, Executor executor);
+
     DeferredResult<Double> mapToDouble(ToDoubleFunction<? super T> mapper);
+
+    DeferredResult<Double> mapToDouble(ToDoubleFunction<? super T> mapper, Executor executor);
 
     DeferredResult<Integer> mapToInt(ToIntFunction<? super T> mapper);
 
+    DeferredResult<Integer> mapToInt(ToIntFunction<? super T> mapper, Executor executor);
+
     DeferredResult<Long> mapToLong(ToLongFunction<? super T> mapper);
+
+    DeferredResult<Long> mapToLong(ToLongFunction<? super T> mapper, Executor executor);
 
     /**
      * Creates a new future by applying a function to the successful result of
@@ -173,11 +218,19 @@ public interface DeferredResult<T> {
      */
     <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper);
 
+    <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper, Executor executor);
+
     DeferredResult<Double> flatMapToDouble(Function<? super T, ? extends DeferredResult<Double>> mapper);
+
+    DeferredResult<Double> flatMapToDouble(Function<? super T, ? extends DeferredResult<Double>> mapper, Executor executor);
 
     DeferredResult<Integer> flatMapToInt(Function<? super T, ? extends DeferredResult<Integer>> mapper);
 
+    DeferredResult<Integer> flatMapToInt(Function<? super T, ? extends DeferredResult<Integer>> mapper, Executor executor);
+
     DeferredResult<Long> flatMapToLong(Function<? super T, ? extends DeferredResult<Long>> mapper);
+
+    DeferredResult<Long> flatMapToLong(Function<? super T, ? extends DeferredResult<Long>> mapper, Executor executor);
 
     /**
      * Creates a new future by filtering the value of the current future with a predicate.
@@ -189,6 +242,8 @@ public interface DeferredResult<T> {
      */
     DeferredResult<T> filter(Predicate<? super T> predicate);
 
+    DeferredResult<T> filter(Predicate<? super T> predicate, Executor executor);
+
     /**
      * Performs a mutable reduction operation on the future. A mutable reduction is one in which
      * the reduced value is a mutable value holder, such as an ArrayList, and elements are incorporated by
@@ -198,6 +253,11 @@ public interface DeferredResult<T> {
                   BiConsumer<R, ? super T> accumulator,
                   BiConsumer<R, R> combiner);
 
+    <R> R collect(Supplier<R> resultFactory,
+                  BiConsumer<R, ? super T> accumulator,
+                  BiConsumer<R, R> combiner,
+                  Executor executor);
+
     /**
      * Creates a new future that will handle any matching throwable that this
      * future might contain. If there is no match, or if this future contains
@@ -205,7 +265,11 @@ public interface DeferredResult<T> {
      */
     <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery);
 
+    <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery, Executor executor);
+
     <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery);
+
+    <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery, Executor executor);
 
     // No zip method as there are no tuples in Java.
 
@@ -233,6 +297,8 @@ public interface DeferredResult<T> {
      * value of this future.
      */
     DeferredResult<T> andThen(Consumer<? super T> action);
+
+    DeferredResult<T> andThen(Consumer<? super T> action, Executor executor);
 
 }
 
