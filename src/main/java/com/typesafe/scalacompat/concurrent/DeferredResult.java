@@ -1,304 +1,799 @@
 package com.typesafe.scalacompat.concurrent;
 
-import com.typesafe.scalacompat.util.Optional;
-import com.typesafe.scalacompat.util.function.*;
+import com.typesafe.scalacompat.util.function.BiConsumer;
+import com.typesafe.scalacompat.util.function.BiFunction;
+import com.typesafe.scalacompat.util.function.Consumer;
+import com.typesafe.scalacompat.util.function.Function;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 
 /**
- * A DeferredResult is a Future that can be observed. Actions are provided
- * to execute when the results of operations are available.
- * </p>
- * DeferredResults are similar to Futures except their results cannot
- * be blocked for.
- * </p>
- * Actions are performed at whatever time and in whatever thread the library chooses unless an
- * Executor is supplied.
+ * A {@link Future} that may include dependent functions and actions
+ * that trigger upon its completion.
  * <p/>
+ * <p>Methods are available for adding dependents based on
+ * user-provided Functions, Consumers, or Runnables. The appropriate
+ * form to use depends on whether actions require arguments and/or
+ * produce results.  Completion of a dependent action will trigger the
+ * completion of another DeferredResult.  Actions may also be
+ * triggered after either or both the current and another
+ * DeferredResult complete.  Multiple DeferredResults may also
+ * be grouped as one using {@link #anyOf(DeferredResult...)} and
+ * {@link #allOf(DeferredResult...)}.
+ * <p/>
+ * <p>DeferredResults themselves do not execute asynchronously.
+ * However, actions supplied for dependent completions of another
+ * DeferredResult may do so, depending on whether they are provided
+ * via one of the <em>async</em> methods (that is, methods with names
+ * of the form <tt><var>xxx</var>Async</tt>).  The <em>async</em>
+ * methods provide a way to commence asynchronous processing of an
+ * action using either a given {@link Executor} or by default the
+ * {@link ForkJoinPool#commonPool()}. To simplify monitoring,
+ * debugging, and tracking, all generated asynchronous tasks are
+ * instances of the marker interface {@link AsynchronousCompletionTask}.
+ * <p/>
+ * <p>Actions supplied for dependent completions of <em>non-async</em>
+ * methods may be performed by the thread that completes the current
+ * DeferredResult, or by any other caller of these methods.  There
+ * are no guarantees about the order of processing completions unless
+ * constrained by these methods.
+ * <p/>
+ * <p>Since (unlike {@link FutureTask}) this class has no direct
+ * control over the computation that causes it to be completed,
+ * cancellation is treated as just another form of exceptional completion.
+ * Method {@link #cancel cancel} has the same effect as
+ * {@code completeExceptionally(new CancellationException())}.
+ * <p/>
+ * <p>Upon exceptional completion (including cancellation), or when a
+ * completion entails an additional computation which terminates
+ * abruptly with an (unchecked) exception or error, then all of their
+ * dependent completions (and their dependents in turn) generally act
+ * as {@code completeExceptionally} with a {@link CompletionException}
+ * holding that exception as its cause.  However, the {@link
+ * #exceptionally exceptionally} and {@link #handle handle}
+ * completions <em>are</em> able to handle exceptional completions of
+ * the DeferredResults they depend on.
+ * <p/>
+ * <p>In case of exceptional completion with a CompletionException,
+ * methods {@link #get()} and {@link #get(long, TimeUnit)} throw an
+ * {@link ExecutionException} with the same cause as held in the
+ * corresponding CompletionException.  However, in these cases,
+ * methods {@link #join()} and {@link #getNow} throw the
+ * CompletionException, which simplifies usage.
+ * <p/>
+ * <p>Arguments used to pass a completion result (that is, for parameters
+ * of type {@code T}) may be null, but passing a null value for any other
+ * parameter will result in a {@link NullPointerException} being thrown.
  *
- * @param <T> to type of result to produce.
+ * @author Doug Lea
+ * @since 1.8
  */
 public interface DeferredResult<T> {
-
-    /* Creational methods - static */
-
     /**
-     * Produces a future result.
-     */
-    DeferredResult<T> of(Supplier<T> supplier);
-
-    DeferredResult<T> of(Executor executor, Supplier<T> supplier);
-
-    /**
-     * Produces a future result of a sequence of actions.
-     */
-    DeferredResult<T> of(Supplier<T>... suppliers);
-
-    DeferredResult<T> of(Executor executor, Supplier<T>... suppliers);
-
-    /**
-     * Creates an already completed result with the specified exception.
-     */
-    DeferredResult<T> failed(Throwable exception);
-
-    /**
-     * Creates an already completed result with the specified exception.
-     */
-    DeferredResult<T> successful(T t);
-
-    /* Traversing methods - static */
-
-    /**
-     * Returns a `Future` to the result of the first future in the list that is completed.
-     */
-    DeferredResult<T> firstCompletedOf(DeferredResult<T>... futures);
-
-    DeferredResult<T> firstCompletedOf(Executor executor, DeferredResult<T>... futures);
-
-    /**
-     * Returns a `Future` that will hold the optional result of the first `Future` with a result that matches the predicate.
-     */
-    DeferredResult<Optional<T>> find(Predicate<? super T> predicate, DeferredResult<T>... futures);
-
-    DeferredResult<Optional<T>> find(Executor executor, Predicate<? super T> predicate, DeferredResult<T>... futures);
-
-    /**
-     * A non-blocking fold over the specified futures, with the start value of the given zero.
-     * The fold is performed on the thread where the last future is completed,
-     * the result will be the first failure of any of the futures, or any failure in the actual fold,
-     * or the result of the fold.
-     */
-    <R> DeferredResult<T> fold(Function<? super T, ? extends R> zero,
-                               BiFunction<? super R, ? super T, ? extends R> folder,
-                               DeferredResult<T>... futures);
-
-    <R> DeferredResult<T> fold(Executor executor,
-                               Function<? super T, ? extends R> zero,
-                               BiFunction<? super R, ? super T, ? extends R> folder,
-                               DeferredResult<T>... futures);
-
-    /**
-     * Initiates a fold over the supplied futures where the fold-zero is the result value of the `Future`
-     * that's completed first.
-     */
-    <R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
-                                 DeferredResult<T>... futures);
-
-    <R> DeferredResult<T> reduce(Executor executor,
-                                 BiFunction<? super R, ? super T, ? extends R> folder,
-                                 DeferredResult<T>... futures);
-
-    /**
-     * Transforms a list of values into a list of futures produced using that value.
-     * This is useful for performing a parallel map.
-     */
-    <A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
-                                             Function<? super A, DeferredResult<? extends T>>... suppliers);
-
-    <A> Iterable<DeferredResult<T>> traverse(Executor executor,
-                                             Iterable<A> collection,
-                                             Function<? super A, DeferredResult<? extends T>>... suppliers);
-
-    /* Instance methods */
-
-    /**
-     * When this future is completed successfully (i.e. with a value),
-     * apply the action function to the value.
-     * <p/>
-     * If the future has already been completed with a value,
-     * this will either be applied immediately or be scheduled asynchronously.
-     */
-    void onSuccess(Consumer<? super T> action);
-
-    void onSuccess(Consumer<? super T> action, Executor executor);
-
-    /**
-     * When this future is completed with a failure (i.e. with a throwable),
-     * apply the provided callback to the throwable.
-     * <p/>
-     * If the future has already been completed with a failure,
-     * this will either be applied immediately or be scheduled asynchronously.
-     * <p/>
-     * Will not be called in case that the future is completed with a value.
-     */
-    void onFailure(Consumer<? super Throwable> failure);
-
-    void onFailure(Consumer<? super Throwable> failure, Executor executor);
-
-    /**
-     * When this future result is completed, either through an exception, or a value,
-     * apply the provided action.
-     * <p/>
-     * If the future result has already been completed,
-     * this will either be applied immediately or be scheduled asynchronously.
-     */
-    void onComplete(Runnable action);
-
-    void onComplete(Runnable action, Executor executor);
-
-    /* Miscellaneous */
-
-    /**
-     * Returns whether the future has already been completed with
-     * a value or an exception.
+     * Returns the result value when complete, or throws an
+     * (unchecked) exception if completed exceptionally. To better
+     * conform with the use of common functional forms, if a
+     * computation involved in the completion of this
+     * DeferredResult threw an exception, this method throws an
+     * (unchecked) {@link java.util.concurrent.CompletionException} with the underlying
+     * exception as its cause.
      *
-     * @return `true` if the future is already completed, `false` otherwise
+     * @return the result value
+     * @throws java.util.concurrent.CancellationException
+     *          if the computation was cancelled
+     * @throws java.util.concurrent.CompletionException
+     *          if this future completed
+     *          exceptionally or a completion computation threw an exception
      */
-    boolean isCompleted();
+    T join();
 
     /**
-     * The value of this `Future`.
+     * Returns the result value (or throws any encountered exception)
+     * if completed, else returns the given valueIfAbsent.
+     *
+     * @param valueIfAbsent the value to return if not completed
+     * @return the result value, if completed, else the given valueIfAbsent
+     * @throws java.util.concurrent.CancellationException
+     *          if the computation was cancelled
+     * @throws java.util.concurrent.CompletionException
+     *          if this future completed
+     *          exceptionally or a completion computation threw an exception
      */
-    Optional<T> value();
-
-    /* Projections */
+    T getNow(T valueIfAbsent);
 
     /**
-     * Returns a failed projection of this future.
+     * Returns a new DeferredResult that is completed
+     * when this DeferredResult completes, with the result of the
+     * given function of this DeferredResult's result.
      * <p/>
-     * The failed projection is a future holding a value of type `Throwable`.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied function throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param fn the function to use to compute the value of
+     *           the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<U> thenApply(Function<? super T, ? extends U> fn);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when this DeferredResult completes, with the result of the
+     * given function of this DeferredResult's result from a
+     * task running in the {@link java.util.concurrent.ForkJoinPool#commonPool()}.
      * <p/>
-     * It is completed with a value which is the throwable of the original future
-     * in case the original future is failed.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied function throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param fn the function to use to compute the value of
+     *           the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<U> thenApplyAsync
+    (Function<? super T, ? extends U> fn);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when this DeferredResult completes, with the result of the
+     * given function of this DeferredResult's result from a
+     * task running in the given executor.
      * <p/>
-     * It is failed with a `NoSuchElementException` if the original future is completed successfully.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied function throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param fn       the function to use to compute the value of
+     *                 the returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
      */
-    DeferredResult<Throwable> failed();
-
-    /* Monadic operations */
+    <U> DeferredResult<U> thenApplyAsync
+    (Function<? super T, ? extends U> fn,
+     Executor executor);
 
     /**
-     * Asynchronously processes the value in the future once the value becomes available.
+     * Returns a new DeferredResult that is completed
+     * when this DeferredResult completes, after performing the given
+     * action with this DeferredResult's result.
      * <p/>
-     * Will not be called if the future fails.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied action throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param block the action to perform before completing the
+     *              returned DeferredResult
+     * @return the new DeferredResult
      */
-    void forEach(Consumer<? super T> action);
-
-    void forEach(Consumer<? super T> action, Executor executor);
+    DeferredResult<Void> thenAccept(Consumer<? super T> block);
 
     /**
-     * Creates a new future by applying the transformer to the successful result of
-     * this future, or the failure to the failed result. If there is any non-fatal
-     * exception thrown when transformer or failure is applied, that exception will be propagated
-     * to the resulting future.
-     */
-    <R> DeferredResult<R> transform(Function<? super T, ? extends R> transformer,
-                                    Function<? super Throwable, ? super Throwable> failure);
-
-    <R> DeferredResult<R> transform(Function<? super T, ? extends R> transformer,
-                                    Function<? super Throwable, ? super Throwable> failure,
-                                    Executor executor);
-
-    /**
-     * Creates a new future by applying a function to the successful result of
-     * this future. If this future is completed with an exception then the new
-     * future will also contain this exception.
-     */
-    <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper);
-
-    <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper, Executor executor);
-
-    DeferredResult<Double> mapToDouble(ToDoubleFunction<? super T> mapper);
-
-    DeferredResult<Double> mapToDouble(ToDoubleFunction<? super T> mapper, Executor executor);
-
-    DeferredResult<Integer> mapToInt(ToIntFunction<? super T> mapper);
-
-    DeferredResult<Integer> mapToInt(ToIntFunction<? super T> mapper, Executor executor);
-
-    DeferredResult<Long> mapToLong(ToLongFunction<? super T> mapper);
-
-    DeferredResult<Long> mapToLong(ToLongFunction<? super T> mapper, Executor executor);
-
-    /**
-     * Creates a new future by applying a function to the successful result of
-     * this future, and returns the result of the function as the new future.
-     * If this future is completed with an exception then the new future will
-     * also contain this exception.
-     */
-    <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper);
-
-    <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper, Executor executor);
-
-    DeferredResult<Double> flatMapToDouble(Function<? super T, ? extends DeferredResult<Double>> mapper);
-
-    DeferredResult<Double> flatMapToDouble(Function<? super T, ? extends DeferredResult<Double>> mapper, Executor executor);
-
-    DeferredResult<Integer> flatMapToInt(Function<? super T, ? extends DeferredResult<Integer>> mapper);
-
-    DeferredResult<Integer> flatMapToInt(Function<? super T, ? extends DeferredResult<Integer>> mapper, Executor executor);
-
-    DeferredResult<Long> flatMapToLong(Function<? super T, ? extends DeferredResult<Long>> mapper);
-
-    DeferredResult<Long> flatMapToLong(Function<? super T, ? extends DeferredResult<Long>> mapper, Executor executor);
-
-    /**
-     * Creates a new future by filtering the value of the current future with a predicate.
+     * Returns a new DeferredResult that is asynchronously completed
+     * when this DeferredResult completes, after performing the given
+     * action with this DeferredResult's result from a task running
+     * in the {@link java.util.concurrent.ForkJoinPool#commonPool()}.
      * <p/>
-     * If the current future contains a value which satisfies the predicate, the new future will also hold that value.
-     * Otherwise, the resulting future will fail with a `NoSuchElementException`.
-     * <p/>
-     * If the current future fails, then the resulting future also fails.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied action throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param block the action to perform before completing the
+     *              returned DeferredResult
+     * @return the new DeferredResult
      */
-    DeferredResult<T> filter(Predicate<? super T> predicate);
-
-    DeferredResult<T> filter(Predicate<? super T> predicate, Executor executor);
+    DeferredResult<Void> thenAcceptAsync(Consumer<? super T> block);
 
     /**
-     * Performs a mutable reduction operation on the future. A mutable reduction is one in which
-     * the reduced value is a mutable value holder, such as an ArrayList, and elements are incorporated by
-     * updating the state of the result, rather than by replacing the result.
+     * Returns a new DeferredResult that is asynchronously completed
+     * when this DeferredResult completes, after performing the given
+     * action with this DeferredResult's result from a task running
+     * in the given executor.
+     * <p/>
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied action throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param block    the action to perform before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
      */
-    <R> R collect(Supplier<R> resultFactory,
-                  BiConsumer<R, ? super T> accumulator,
-                  BiConsumer<R, R> combiner);
-
-    <R> R collect(Supplier<R> resultFactory,
-                  BiConsumer<R, ? super T> accumulator,
-                  BiConsumer<R, R> combiner,
-                  Executor executor);
+    DeferredResult<Void> thenAcceptAsync(Consumer<? super T> block,
+                                         Executor executor);
 
     /**
-     * Creates a new future that will handle any matching throwable that this
-     * future might contain. If there is no match, or if this future contains
-     * a valid result then the new future will contain the same.
+     * Returns a new DeferredResult that is completed
+     * when this DeferredResult completes, after performing the given
+     * action.
+     * <p/>
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied action throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param action the action to perform before completing the
+     *               returned DeferredResult
+     * @return the new DeferredResult
      */
-    <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery);
-
-    <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery, Executor executor);
-
-    <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery);
-
-    <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery, Executor executor);
-
-    // No zip method as there are no tuples in Java.
+    DeferredResult<Void> thenRun(Runnable action);
 
     /**
-     * Creates a new future which holds the result of this future if it was completed successfully, or, if not,
-     * the result of the `that` future if `that` is completed successfully.
-     * If both futures are failed, the resulting future holds the throwable object of the first future.
+     * Returns a new DeferredResult that is asynchronously completed
+     * when this DeferredResult completes, after performing the given
+     * action from a task running in the {@link java.util.concurrent.ForkJoinPool#commonPool()}.
      * <p/>
-     * Using this method will not cause concurrent programs to become nondeterministic.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied action throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param action the action to perform before completing the
+     *               returned DeferredResult
+     * @return the new DeferredResult
      */
-    <R extends T> DeferredResult<R> fallbackTo(Function<? super T, ? extends R> fallback);
-
-    // No mapTo method as ClassTags are not available in Java.
+    DeferredResult<Void> thenRunAsync(Runnable action);
 
     /**
-     * Applies the side-effecting function to the result of this future, and returns
-     * a new future with the result of this future.
+     * Returns a new DeferredResult that is asynchronously completed
+     * when this DeferredResult completes, after performing the given
+     * action from a task running in the given executor.
      * <p/>
-     * This method allows one to enforce that the callbacks are executed in a
-     * specified order.
-     * <p/>
-     * Note that if one of the chained `andThen` callbacks throws
-     * an exception, that exception is not propagated to the subsequent `andThen`
-     * callbacks. Instead, the subsequent `andThen` callbacks are given the original
-     * value of this future.
+     * <p>If this DeferredResult completes exceptionally, or the
+     * supplied action throws an exception, then the returned
+     * DeferredResult completes exceptionally with a
+     * CompletionException holding the exception as its cause.
+     *
+     * @param action   the action to perform before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
      */
-    DeferredResult<T> andThen(Consumer<? super T> action);
+    DeferredResult<Void> thenRunAsync(Runnable action,
+                                      Executor executor);
 
-    DeferredResult<T> andThen(Consumer<? super T> action, Executor executor);
+    /**
+     * Returns a new DeferredResult that is completed
+     * when both this and the other given DeferredResult complete,
+     * with the result of the given function of the results of the two
+     * DeferredResults.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied function throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other the other DeferredResult
+     * @param fn    the function to use to compute the value of
+     *              the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U, V> DeferredResult<V> thenCombine
+    (DeferredResult<? extends U> other,
+     BiFunction<? super T, ? super U, ? extends V> fn);
 
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when both this and the other given DeferredResult complete,
+     * with the result of the given function of the results of the two
+     * DeferredResults from a task running in the
+     * {@link java.util.concurrent.ForkJoinPool#commonPool()}.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied function throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other the other DeferredResult
+     * @param fn    the function to use to compute the value of
+     *              the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U, V> DeferredResult<V> thenCombineAsync
+    (DeferredResult<? extends U> other,
+     BiFunction<? super T, ? super U, ? extends V> fn);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when both this and the other given DeferredResult complete,
+     * with the result of the given function of the results of the two
+     * DeferredResults from a task running in the given executor.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied function throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other    the other DeferredResult
+     * @param fn       the function to use to compute the value of
+     *                 the returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    <U, V> DeferredResult<V> thenCombineAsync
+    (DeferredResult<? extends U> other,
+     BiFunction<? super T, ? super U, ? extends V> fn,
+     Executor executor);
+
+    /**
+     * Returns a new DeferredResult that is completed
+     * when both this and the other given DeferredResult complete,
+     * after performing the given action with the results of the two
+     * DeferredResults.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied action throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other the other DeferredResult
+     * @param block the action to perform before completing the
+     *              returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<Void> thenAcceptBoth
+    (DeferredResult<? extends U> other,
+     BiConsumer<? super T, ? super U> block);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when both this and the other given DeferredResult complete,
+     * after performing the given action with the results of the two
+     * DeferredResults from a task running in the {@link
+     * java.util.concurrent.ForkJoinPool#commonPool()}.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied action throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other the other DeferredResult
+     * @param block the action to perform before completing the
+     *              returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<Void> thenAcceptBothAsync
+    (DeferredResult<? extends U> other,
+     BiConsumer<? super T, ? super U> block);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when both this and the other given DeferredResult complete,
+     * after performing the given action with the results of the two
+     * DeferredResults from a task running in the given executor.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied action throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other    the other DeferredResult
+     * @param block    the action to perform before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<Void> thenAcceptBothAsync
+    (DeferredResult<? extends U> other,
+     BiConsumer<? super T, ? super U> block,
+     Executor executor);
+
+    /**
+     * Returns a new DeferredResult that is completed
+     * when both this and the other given DeferredResult complete,
+     * after performing the given action.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied action throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other  the other DeferredResult
+     * @param action the action to perform before completing the
+     *               returned DeferredResult
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> runAfterBoth(DeferredResult<?> other,
+                                      Runnable action);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when both this and the other given DeferredResult complete,
+     * after performing the given action from a task running in the
+     * {@link java.util.concurrent.ForkJoinPool#commonPool()}.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied action throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other  the other DeferredResult
+     * @param action the action to perform before completing the
+     *               returned DeferredResult
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> runAfterBothAsync(DeferredResult<?> other,
+                                           Runnable action);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when both this and the other given DeferredResult complete,
+     * after performing the given action from a task running in the
+     * given executor.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, or the supplied action throws an exception,
+     * then the returned DeferredResult completes exceptionally
+     * with a CompletionException holding the exception as its cause.
+     *
+     * @param other    the other DeferredResult
+     * @param action   the action to perform before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> runAfterBothAsync(DeferredResult<?> other,
+                                           Runnable action,
+                                           Executor executor);
+
+    /**
+     * Returns a new DeferredResult that is completed
+     * when either this or the other given DeferredResult completes,
+     * with the result of the given function of either this or the other
+     * DeferredResult's result.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied function
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other the other DeferredResult
+     * @param fn    the function to use to compute the value of
+     *              the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<U> applyToEither
+    (DeferredResult<? extends T> other,
+     Function<? super T, U> fn);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when either this or the other given DeferredResult completes,
+     * with the result of the given function of either this or the other
+     * DeferredResult's result from a task running in the
+     * {@link java.util.concurrent.ForkJoinPool#commonPool()}.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied function
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other the other DeferredResult
+     * @param fn    the function to use to compute the value of
+     *              the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<U> applyToEitherAsync
+    (DeferredResult<? extends T> other,
+     Function<? super T, U> fn);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when either this or the other given DeferredResult completes,
+     * with the result of the given function of either this or the other
+     * DeferredResult's result from a task running in the
+     * given executor.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied function
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other    the other DeferredResult
+     * @param fn       the function to use to compute the value of
+     *                 the returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<U> applyToEitherAsync
+    (DeferredResult<? extends T> other,
+     Function<? super T, U> fn,
+     Executor executor);
+
+    /**
+     * Returns a new DeferredResult that is completed
+     * when either this or the other given DeferredResult completes,
+     * after performing the given action with the result of either this
+     * or the other DeferredResult's result.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied action
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other the other DeferredResult
+     * @param block the action to perform before completing the
+     *              returned DeferredResult
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> acceptEither
+    (DeferredResult<? extends T> other,
+     Consumer<? super T> block);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when either this or the other given DeferredResult completes,
+     * after performing the given action with the result of either this
+     * or the other DeferredResult's result from a task running in
+     * the {@link java.util.concurrent.ForkJoinPool#commonPool()}.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied action
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other the other DeferredResult
+     * @param block the action to perform before completing the
+     *              returned DeferredResult
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> acceptEitherAsync
+    (DeferredResult<? extends T> other,
+     Consumer<? super T> block);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when either this or the other given DeferredResult completes,
+     * after performing the given action with the result of either this
+     * or the other DeferredResult's result from a task running in
+     * the given executor.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied action
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other    the other DeferredResult
+     * @param block    the action to perform before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> acceptEitherAsync
+    (DeferredResult<? extends T> other,
+     Consumer<? super T> block,
+     Executor executor);
+
+    /**
+     * Returns a new DeferredResult that is completed
+     * when either this or the other given DeferredResult completes,
+     * after performing the given action.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied action
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other  the other DeferredResult
+     * @param action the action to perform before completing the
+     *               returned DeferredResult
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> runAfterEither(DeferredResult<?> other,
+                                        Runnable action);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when either this or the other given DeferredResult completes,
+     * after performing the given action from a task running in the
+     * {@link java.util.concurrent.ForkJoinPool#commonPool()}.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied action
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other  the other DeferredResult
+     * @param action the action to perform before completing the
+     *               returned DeferredResult
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> runAfterEitherAsync
+    (DeferredResult<?> other,
+     Runnable action);
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * when either this or the other given DeferredResult completes,
+     * after performing the given action from a task running in the
+     * given executor.
+     * <p/>
+     * <p>If this and/or the other DeferredResult complete
+     * exceptionally, then the returned DeferredResult may also do so,
+     * with a CompletionException holding one of these exceptions as its
+     * cause.  No guarantees are made about which result or exception is
+     * used in the returned DeferredResult.  If the supplied action
+     * throws an exception, then the returned DeferredResult completes
+     * exceptionally with a CompletionException holding the exception as
+     * its cause.
+     *
+     * @param other    the other DeferredResult
+     * @param action   the action to perform before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    DeferredResult<Void> runAfterEitherAsync
+    (DeferredResult<?> other,
+     Runnable action,
+     Executor executor);
+
+    /**
+     * Returns a DeferredResult that upon completion, has the same
+     * value as produced by the given function of the result of this
+     * DeferredResult.
+     * <p/>
+     * <p>If this DeferredResult completes exceptionally, then the
+     * returned DeferredResult also does so, with a
+     * CompletionException holding this exception as its cause.
+     * Similarly, if the computed DeferredResult completes
+     * exceptionally, then so does the returned DeferredResult.
+     *
+     * @param fn the function returning a new DeferredResult
+     * @return the DeferredResult
+     */
+    <U> DeferredResult<U> thenCompose
+    (Function<? super T, DeferredResult<U>> fn);
+
+    /**
+     * Returns a DeferredResult that upon completion, has the same
+     * value as that produced asynchronously using the {@link
+     * java.util.concurrent.ForkJoinPool#commonPool()} by the given function of the result
+     * of this DeferredResult.
+     * <p/>
+     * <p>If this DeferredResult completes exceptionally, then the
+     * returned DeferredResult also does so, with a
+     * CompletionException holding this exception as its cause.
+     * Similarly, if the computed DeferredResult completes
+     * exceptionally, then so does the returned DeferredResult.
+     *
+     * @param fn the function returning a new DeferredResult
+     * @return the DeferredResult
+     */
+    <U> DeferredResult<U> thenComposeAsync
+    (Function<? super T, DeferredResult<U>> fn);
+
+    /**
+     * Returns a DeferredResult that upon completion, has the same
+     * value as that produced asynchronously using the given executor
+     * by the given function of this DeferredResult.
+     * <p/>
+     * <p>If this DeferredResult completes exceptionally, then the
+     * returned DeferredResult also does so, with a
+     * CompletionException holding this exception as its cause.
+     * Similarly, if the computed DeferredResult completes
+     * exceptionally, then so does the returned DeferredResult.
+     *
+     * @param fn       the function returning a new DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the DeferredResult
+     */
+    <U> DeferredResult<U> thenComposeAsync
+    (Function<? super T, DeferredResult<U>> fn,
+     Executor executor);
+
+    /**
+     * Returns a new DeferredResult that is completed when this
+     * DeferredResult completes, with the result of the given
+     * function of the exception triggering this DeferredResult's
+     * completion when it completes exceptionally; otherwise, if this
+     * DeferredResult completes normally, then the returned
+     * DeferredResult also completes normally with the same value.
+     *
+     * @param fn the function to use to compute the value of the
+     *           returned DeferredResult if this DeferredResult completed
+     *           exceptionally
+     * @return the new DeferredResult
+     */
+    DeferredResult<T> exceptionally
+    (Function<Throwable, ? extends T> fn);
+
+    /**
+     * Returns a new DeferredResult that is completed when this
+     * DeferredResult completes, with the result of the given
+     * function of the result and exception of this DeferredResult's
+     * completion.  The given function is invoked with the result (or
+     * {@code null} if none) and the exception (or {@code null} if none)
+     * of this DeferredResult when complete.
+     *
+     * @param fn the function to use to compute the value of the
+     *           returned DeferredResult
+     * @return the new DeferredResult
+     */
+    <U> DeferredResult<U> handle
+    (BiFunction<? super T, Throwable, ? extends U> fn);
+
+    /**
+     * Returns a new DeferredResult that is completed when all of
+     * the given DeferredResults complete.  If any of the given
+     * DeferredResults complete exceptionally, then the returned
+     * DeferredResult also does so, with a CompletionException
+     * holding this exception as its cause.  Otherwise, the results,
+     * if any, of the given DeferredResults are not reflected in
+     * the returned DeferredResult, but may be obtained by
+     * inspecting them individually. If no DeferredResults are
+     * provided, returns a DeferredResult completed with the value
+     * {@code null}.
+     * <p/>
+     * <p>Among the applications of this method is to await completion
+     * of a set of independent DeferredResults before continuing a
+     * program, as in: {@code DeferredResult.allOf(c1, c2,
+     *c3).join();}.
+     *
+     * @param cfs the DeferredResults
+     * @return a new DeferredResult that is completed when all of the
+     *         given DeferredResults complete
+     * @throws NullPointerException if the array or any of its elements are
+     *                              {@code null}
+     */
+    public static DeferredResult<Void> allOf(DeferredResult<?>... cfs) {
+        return null;
+    }
+
+    /**
+     * Returns a new DeferredResult that is completed when any of
+     * the given DeferredResults complete, with the same result.
+     * Otherwise, if it completed exceptionally, the returned
+     * DeferredResult also does so, with a CompletionException
+     * holding this exception as its cause.  If no DeferredResults
+     * are provided, returns an incomplete DeferredResult.
+     *
+     * @param cfs the DeferredResults
+     * @return a new DeferredResult that is completed with the
+     *         result or exception of any of the given DeferredResults when
+     *         one completes
+     * @throws NullPointerException if the array or any of its elements are
+     *                              {@code null}
+     */
+    public static DeferredResult<Object> anyOf(DeferredResult<?>... cfs) {
+        return null;
+    }
 }
-
