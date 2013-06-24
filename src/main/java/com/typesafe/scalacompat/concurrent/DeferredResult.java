@@ -1,12 +1,11 @@
 package com.typesafe.scalacompat.concurrent;
 
-import com.typesafe.scalacompat.util.function.BiConsumer;
-import com.typesafe.scalacompat.util.function.BiFunction;
-import com.typesafe.scalacompat.util.function.Consumer;
-import com.typesafe.scalacompat.util.function.Function;
-
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * A {@link Future} that may include dependent functions and actions
@@ -70,24 +69,6 @@ import java.util.concurrent.Future;
  * @since 1.8
  */
 public interface DeferredResult<T> {
-    /**
-     * Returns the result value when complete, or throws an
-     * (unchecked) exception if completed exceptionally. To better
-     * conform with the use of common functional forms, if a
-     * computation involved in the completion of this
-     * DeferredResult threw an exception, this method throws an
-     * (unchecked) {@link java.util.concurrent.CompletionException} with the underlying
-     * exception as its cause.
-     *
-     * @return the result value
-     * @throws java.util.concurrent.CancellationException
-     *          if the computation was cancelled
-     * @throws java.util.concurrent.CompletionException
-     *          if this future completed
-     *          exceptionally or a completion computation threw an exception
-     */
-    T join();
-
     /**
      * Returns the result value (or throws any encountered exception)
      * if completed, else returns the given valueIfAbsent.
