@@ -1,8 +1,6 @@
-package com.typesafe.scalacompat.concurrent;
+package java.util.concurrent;
 
 import java.util.Optional;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.*;
 
 /**
