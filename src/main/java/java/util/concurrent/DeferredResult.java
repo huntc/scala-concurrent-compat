@@ -1,69 +1,14 @@
-package com.typesafe.scalacompat.concurrent;
+package java.util.concurrent;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * A {@link Future} that may include dependent functions and actions
- * that trigger upon its completion.
- * <p/>
- * <p>Methods are available for adding dependents based on
- * user-provided Functions, Consumers, or Runnables. The appropriate
- * form to use depends on whether actions require arguments and/or
- * produce results.  Completion of a dependent action will trigger the
- * completion of another DeferredResult.  Actions may also be
- * triggered after either or both the current and another
- * DeferredResult complete.  Multiple DeferredResults may also
- * be grouped as one using {@link #anyOf(DeferredResult...)} and
- * {@link #allOf(DeferredResult...)}.
- * <p/>
- * <p>DeferredResults themselves do not execute asynchronously.
- * However, actions supplied for dependent completions of another
- * DeferredResult may do so, depending on whether they are provided
- * via one of the <em>async</em> methods (that is, methods with names
- * of the form <tt><var>xxx</var>Async</tt>).  The <em>async</em>
- * methods provide a way to commence asynchronous processing of an
- * action using either a given {@link Executor} or by default the
- * {@link ForkJoinPool#commonPool()}. To simplify monitoring,
- * debugging, and tracking, all generated asynchronous tasks are
- * instances of the marker interface {@link AsynchronousCompletionTask}.
- * <p/>
- * <p>Actions supplied for dependent completions of <em>non-async</em>
- * methods may be performed by the thread that completes the current
- * DeferredResult, or by any other caller of these methods.  There
- * are no guarantees about the order of processing completions unless
- * constrained by these methods.
- * <p/>
- * <p>Since (unlike {@link FutureTask}) this class has no direct
- * control over the computation that causes it to be completed,
- * cancellation is treated as just another form of exceptional completion.
- * Method {@link #cancel cancel} has the same effect as
- * {@code completeExceptionally(new CancellationException())}.
- * <p/>
- * <p>Upon exceptional completion (including cancellation), or when a
- * completion entails an additional computation which terminates
- * abruptly with an (unchecked) exception or error, then all of their
- * dependent completions (and their dependents in turn) generally act
- * as {@code completeExceptionally} with a {@link CompletionException}
- * holding that exception as its cause.  However, the {@link
- * #exceptionally exceptionally} and {@link #handle handle}
- * completions <em>are</em> able to handle exceptional completions of
- * the DeferredResults they depend on.
- * <p/>
- * <p>In case of exceptional completion with a CompletionException,
- * methods {@link #get()} and {@link #get(long, TimeUnit)} throw an
- * {@link ExecutionException} with the same cause as held in the
- * corresponding CompletionException.  However, in these cases,
- * methods {@link #join()} and {@link #getNow} throw the
- * CompletionException, which simplifies usage.
- * <p/>
- * <p>Arguments used to pass a completion result (that is, for parameters
- * of type {@code T}) may be null, but passing a null value for any other
- * parameter will result in a {@link NullPointerException} being thrown.
+ * Similar to a {@link java.util.concurrent.Future} in that it has a result determined at some point in the future.
+ * Unlike {@link java.util.concurrent.Future}, DeferredResult includes dependent functions and actions that trigger
+ * upon its completion.
  *
  * @author Doug Lea
  * @since 1.8
@@ -732,49 +677,4 @@ public interface DeferredResult<T> {
     <U> DeferredResult<U> handle
     (BiFunction<? super T, Throwable, ? extends U> fn);
 
-    /**
-     * Returns a new DeferredResult that is completed when all of
-     * the given DeferredResults complete.  If any of the given
-     * DeferredResults complete exceptionally, then the returned
-     * DeferredResult also does so, with a CompletionException
-     * holding this exception as its cause.  Otherwise, the results,
-     * if any, of the given DeferredResults are not reflected in
-     * the returned DeferredResult, but may be obtained by
-     * inspecting them individually. If no DeferredResults are
-     * provided, returns a DeferredResult completed with the value
-     * {@code null}.
-     * <p/>
-     * <p>Among the applications of this method is to await completion
-     * of a set of independent DeferredResults before continuing a
-     * program, as in: {@code DeferredResult.allOf(c1, c2,
-     *c3).join();}.
-     *
-     * @param cfs the DeferredResults
-     * @return a new DeferredResult that is completed when all of the
-     *         given DeferredResults complete
-     * @throws NullPointerException if the array or any of its elements are
-     *                              {@code null}
-     */
-    public static DeferredResult<Void> allOf(DeferredResult<?>... cfs) {
-        return null;
-    }
-
-    /**
-     * Returns a new DeferredResult that is completed when any of
-     * the given DeferredResults complete, with the same result.
-     * Otherwise, if it completed exceptionally, the returned
-     * DeferredResult also does so, with a CompletionException
-     * holding this exception as its cause.  If no DeferredResults
-     * are provided, returns an incomplete DeferredResult.
-     *
-     * @param cfs the DeferredResults
-     * @return a new DeferredResult that is completed with the
-     *         result or exception of any of the given DeferredResults when
-     *         one completes
-     * @throws NullPointerException if the array or any of its elements are
-     *                              {@code null}
-     */
-    public static DeferredResult<Object> anyOf(DeferredResult<?>... cfs) {
-        return null;
-    }
 }
