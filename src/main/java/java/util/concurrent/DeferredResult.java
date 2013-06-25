@@ -4,24 +4,24 @@ import java.util.Optional;
 import java.util.function.*;
 
 /**
- * A DeferredResult is a Future that can be observed. Actions are provided
- * to execute when the results of operations are available.
+ * A DeferredResult is similar to {@link Future} in that it represents the result of an asynchronous
+ * computation. Unlike {@link Future} DeferredResults can be observed and actions are provided
+ * to execute when the results become available.
  * </p>
- * DeferredResults are similar to Futures except their results cannot
- * be blocked for.
- * </p>
- * Actions are performed at whatever time and in whatever thread the library chooses unless an
- * Executor is supplied.
+ * Actions are performed in the {@link java.util.concurrent.ForkJoinPool#commonPool()} unless an
+ * Executor is supplied. All operations for DeferredResult are designed to be non-blocking.
  * <p/>
  *
  * @param <T> to type of result to produce.
+ * @author The Typesafe Team
+ * @since 1.8
  */
 public interface DeferredResult<T> {
 
     /* Creational methods */
 
     /**
-     * Produces a future result.
+     * Produces a deferred result.
      */
     static <T> DeferredResult<T> of(Supplier<T> supplier) {
         return of(ForkJoinPool.commonPool(), supplier);
@@ -33,7 +33,7 @@ public interface DeferredResult<T> {
     }
 
     /**
-     * Produces a future result of a sequence of actions.
+     * Produces a deferred result of a sequence of actions.
      */
     static <T> DeferredResult<T> of(Supplier<T>... suppliers) {
         return of(ForkJoinPool.commonPool(), suppliers);
@@ -63,72 +63,72 @@ public interface DeferredResult<T> {
     /* Traversing methods */
 
     /**
-     * Returns a `Future` to the result of the first future in the list that is completed.
+     * Returns a result to the value of the first result in the list that is completed.
      */
-    static <T> DeferredResult<T> firstCompletedOf(DeferredResult<T>... futures) {
-        return firstCompletedOf(ForkJoinPool.commonPool(), futures);
+    static <T> DeferredResult<T> firstCompletedOf(DeferredResult<T>... results) {
+        return firstCompletedOf(ForkJoinPool.commonPool(), results);
     }
 
-    static <T> DeferredResult<T> firstCompletedOf(Executor executor, DeferredResult<T>... futures) {
+    static <T> DeferredResult<T> firstCompletedOf(Executor executor, DeferredResult<T>... results) {
         //FIXME: provide implementation
         return null;
     }
 
     /**
-     * Returns a `Future` that will hold the optional result of the first `Future` with a result that matches the predicate.
+     * Returns a result that will hold the optional value of the first result with a value that matches the predicate.
      */
     static <T> DeferredResult<Optional<T>> find(
             Predicate<? super T> predicate,
-            DeferredResult<T>... futures) {
-        return find(ForkJoinPool.commonPool(), predicate, futures);
+            DeferredResult<T>... results) {
+        return find(ForkJoinPool.commonPool(), predicate, results);
     }
 
     static <T> DeferredResult<Optional<T>> find(
             Executor executor,
             Predicate<? super T> predicate,
-            DeferredResult<T>... futures) {
+            DeferredResult<T>... results) {
         //FIXME: provide implementation
         return null;
     }
 
     /**
-     * A non-blocking fold over the specified futures, with the start value of the given zero.
-     * The fold is performed on the thread where the last future is completed,
-     * the result will be the first failure of any of the futures, or any failure in the actual fold,
-     * or the result of the fold.
+     * A non-blocking fold over the specified results, with the start value supplied by the `zero` function.
+     * The fold is performed on the thread where the last result is completed.
+     * The result will be the first failure of any of the results, or any failure in the actual fold,
+     * or the product of the fold.
      */
     static <T, R> DeferredResult<T> fold(Function<? super T, ? extends R> zero,
                                          BiFunction<? super R, ? super T, ? extends R> folder,
-                                         DeferredResult<T>... futures) {
-        return fold(ForkJoinPool.commonPool(), zero, folder, futures);
+                                         DeferredResult<T>... results) {
+        return fold(ForkJoinPool.commonPool(), zero, folder, results);
     }
 
     static <T, R> DeferredResult<T> fold(Executor executor,
                                          Function<? super T, ? extends R> zero,
                                          BiFunction<? super R, ? super T, ? extends R> folder,
-                                         DeferredResult<T>... futures) {
+                                         DeferredResult<T>... results) {
         //FIXME: provide implementation
         return null;
     }
 
     /**
-     * Initiates a fold over the supplied futures where the fold-zero is the result value of the `Future`
-     * that's completed first.
+     * Initiates a fold over the supplied results where the fold-zero is the  value of the result
+     * that is completed first.
      */
     static <T, R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
-                                           DeferredResult<T>... futures) {
-        return reduce(ForkJoinPool.commonPool(), folder, futures);
+                                           DeferredResult<T>... results) {
+        return reduce(ForkJoinPool.commonPool(), folder, results);
     }
 
     static <T, R> DeferredResult<T> reduce(Executor executor,
                                            BiFunction<? super R, ? super T, ? extends R> folder,
-                                           DeferredResult<T>... futures) {
+                                           DeferredResult<T>... results) {
         //FIXME: provide implementation
         return null;
     }
 
     /**
-     * Transforms a list of values into a list of futures produced using that value.
+     * Transforms a list of values into a list of results produced using that value.
      * This is useful for performing a parallel map.
      */
     static <T, A> Iterable<DeferredResult<T>> traverse(Iterable<A> collection,
@@ -146,10 +146,10 @@ public interface DeferredResult<T> {
     /* Instance methods */
 
     /**
-     * When this future is completed successfully (i.e. with a value),
+     * When this result is completed successfully (i.e. with a value),
      * apply the action function to the value.
      * <p/>
-     * If the future has already been completed with a value,
+     * If the result has already been completed with a value,
      * this will either be applied immediately or be scheduled asynchronously.
      */
     default void onSuccess(Consumer<? super T> action) {
@@ -159,13 +159,13 @@ public interface DeferredResult<T> {
     void onSuccess(Consumer<? super T> action, Executor executor);
 
     /**
-     * When this future is completed with a failure (i.e. with a throwable),
+     * When this result is completed with a failure (i.e. with a throwable),
      * apply the provided callback to the throwable.
      * <p/>
-     * If the future has already been completed with a failure,
+     * If the result has already been completed with a failure,
      * this will either be applied immediately or be scheduled asynchronously.
      * <p/>
-     * Will not be called in case that the future is completed with a value.
+     * Will not be called in case that the result is completed with a value.
      */
     default void onFailure(Consumer<? super Throwable> failure) {
         onFailure(failure, ForkJoinPool.commonPool());
@@ -174,10 +174,10 @@ public interface DeferredResult<T> {
     void onFailure(Consumer<? super Throwable> failure, Executor executor);
 
     /**
-     * When this future result is completed, either through an exception, or a value,
+     * When this deferred result is completed, either through an exception, or a value,
      * apply the provided action.
      * <p/>
-     * If the future result has already been completed,
+     * If the deferred result has already been completed,
      * this will either be applied immediately or be scheduled asynchronously.
      */
     default void onComplete(Runnable action) {
@@ -189,38 +189,38 @@ public interface DeferredResult<T> {
     /* Miscellaneous */
 
     /**
-     * Returns whether the future has already been completed with
+     * Returns whether the result has already been completed with
      * a value or an exception.
      *
-     * @return `true` if the future is already completed, `false` otherwise
+     * @return `true` if the result is already completed, `false` otherwise
      */
     boolean isCompleted();
 
     /**
-     * The value of this current `Future`.
+     * The value of this current result.
      */
     Optional<T> value();
 
     /* Projections */
 
     /**
-     * Returns a failed projection of this future.
+     * Returns a failed projection of this result.
      * <p/>
-     * The failed projection is a future holding a value of type `Throwable`.
+     * The failed projection is a result holding a value of type `Throwable`.
      * <p/>
-     * It is completed with a value which is the throwable of the original future
-     * in case the original future is failed.
+     * It is completed with a value which is the throwable of the original result
+     * in case the original result is failed.
      * <p/>
-     * It is failed with a `NoSuchElementException` if the original future is completed successfully.
+     * It is failed with a {@link java.util.NoSuchElementException} if the original result is completed successfully.
      */
     DeferredResult<Throwable> failed();
 
     /* Monadic operations */
 
     /**
-     * Asynchronously processes the value in the future once the value becomes available.
+     * Asynchronously processes the value in the result once the value becomes available.
      * <p/>
-     * Will not be called if the future fails.
+     * Will not be called if the result fails.
      */
     default void forEach(Consumer<? super T> action) {
         forEach(action, ForkJoinPool.commonPool());
@@ -229,10 +229,10 @@ public interface DeferredResult<T> {
     void forEach(Consumer<? super T> action, Executor executor);
 
     /**
-     * Creates a new future by applying the transformer to the successful result of
-     * this future, or the failure to the failed result. If there is any non-fatal
+     * Creates a new result by applying the transformer to the successful value of
+     * this result, or the failure to the failed value. If there is any non-fatal
      * exception thrown when transformer or failure is applied, that exception will be propagated
-     * to the resulting future.
+     * to the result returned.
      */
     default <R> DeferredResult<R> transform(Function<? super T, ? extends R> transformer,
                                             Function<? super Throwable, ? super Throwable> failure) {
@@ -244,9 +244,9 @@ public interface DeferredResult<T> {
                                     Executor executor);
 
     /**
-     * Creates a new future by applying a function to the successful result of
-     * this future. If this future is completed with an exception then the new
-     * future will also contain this exception.
+     * Creates a new result by applying a function to the successful value of
+     * this result. If this result is completed with an exception then the new
+     * result will also contain this exception.
      */
     default <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper) {
         return map(mapper, ForkJoinPool.commonPool());
@@ -255,9 +255,9 @@ public interface DeferredResult<T> {
     <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper, Executor executor);
 
     /**
-     * Creates a new future by applying a function to the successful result of
-     * this future, and returns the result of the function as the new future.
-     * If this future is completed with an exception then the new future will
+     * Creates a new result by applying a function to the successful value of
+     * this result, and returns the result of the function as the new result.
+     * If this result is completed with an exception then the new result will
      * also contain this exception.
      */
     default <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper) {
@@ -267,12 +267,12 @@ public interface DeferredResult<T> {
     <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper, Executor executor);
 
     /**
-     * Creates a new future by filtering the value of the current future with a predicate.
+     * Creates a new result by filtering the value of the current result with a predicate.
      * <p/>
-     * If the current future contains a value which satisfies the predicate, the new future will also hold that value.
-     * Otherwise, the resulting future will fail with a `NoSuchElementException`.
+     * If the current result contains a value which satisfies the predicate, the new result will also hold that value.
+     * Otherwise, the returned result will fail with a {@link java.util.NoSuchElementException}.
      * <p/>
-     * If the current future fails, then the resulting future also fails.
+     * If the current result fails, then the returned result also fails.
      */
     default DeferredResult<T> filter(Predicate<? super T> predicate) {
         return filter(predicate, ForkJoinPool.commonPool());
@@ -281,7 +281,7 @@ public interface DeferredResult<T> {
     DeferredResult<T> filter(Predicate<? super T> predicate, Executor executor);
 
     /**
-     * Performs a mutable reduction operation on the future. A mutable reduction is one in which
+     * Performs a mutable reduction operation on the result. A mutable reduction is one in which
      * the reduced value is a mutable value holder, such as an ArrayList, and elements are incorporated by
      * updating the state of the result, rather than by replacing the result.
      */
@@ -297,9 +297,9 @@ public interface DeferredResult<T> {
                   Executor executor);
 
     /**
-     * Creates a new future that will handle any matching throwable that this
-     * future might contain. If there is no match, or if this future contains
-     * a valid result then the new future will contain the same.
+     * Creates a new result that will handle any matching throwable that this
+     * result might contain. If there is no match, or if this result contains
+     * a valid result then the new result will contain the same.
      */
     default <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery) {
         return recover(recovery, ForkJoinPool.commonPool());
@@ -314,17 +314,17 @@ public interface DeferredResult<T> {
     <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery, Executor executor);
 
     /**
-     * Creates a new future which holds the result of this future if it was completed successfully, or, if not,
-     * the result of the `that` future if `that` is completed successfully.
-     * If both futures are failed, the resulting future holds the throwable object of the first future.
+     * Creates a new result which holds the value of this result if it was completed successfully, or, if not,
+     * the value of the `fallback` result if `fallback` is completed successfully.
+     * If both results are failed, the returned result holds the throwable object of the first result.
      * <p/>
      * Using this method will not cause concurrent programs to become nondeterministic.
      */
     <R extends T> DeferredResult<R> fallbackTo(Function<? super T, ? extends R> fallback);
 
     /**
-     * Applies the side-effecting function to the result of this future, and returns
-     * a new future with the result of this future.
+     * Applies the side-effecting function to the value of this result, and returns
+     * a new result with the value of this result.
      * <p/>
      * This method allows one to enforce that the callbacks are executed in a
      * specified order.
@@ -332,7 +332,7 @@ public interface DeferredResult<T> {
      * Note that if one of the chained `andThen` callbacks throws
      * an exception, that exception is not propagated to the subsequent `andThen`
      * callbacks. Instead, the subsequent `andThen` callbacks are given the original
-     * value of this future.
+     * value of this result.
      */
     default DeferredResult<T> andThen(Consumer<? super T> action) {
         return andThen(action, ForkJoinPool.commonPool());
