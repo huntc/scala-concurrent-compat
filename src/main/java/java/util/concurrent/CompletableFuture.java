@@ -1711,34 +1711,6 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     }
 
     /**
-     * Returns the result value (or throws any encountered exception)
-     * if completed, else returns the given valueIfAbsent.
-     *
-     * @param valueIfAbsent the value to return if not completed
-     * @return the result value, if completed, else the given valueIfAbsent
-     * @throws CancellationException if the computation was cancelled
-     * @throws CompletionException   if this future completed
-     *                               exceptionally or a completion computation threw an exception
-     */
-    public T getNow(T valueIfAbsent) {
-        Object r;
-        Throwable ex;
-        if ((r = result) == null)
-            return valueIfAbsent;
-        if (!(r instanceof AltResult)) {
-            @SuppressWarnings("unchecked") T tr = (T) r;
-            return tr;
-        }
-        if ((ex = ((AltResult) r).ex) == null)
-            return null;
-        if (ex instanceof CancellationException)
-            throw (CancellationException) ex;
-        if (ex instanceof CompletionException)
-            throw (CompletionException) ex;
-        throw new CompletionException(ex);
-    }
-
-    /**
      * If not already completed, sets the value returned by {@link
      * #get()} and related methods to the given value.
      *
@@ -1808,12 +1780,26 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
 
     @Override
     public boolean isCompleted() {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return isDone();
     }
 
     @Override
     public Optional<T> value() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        Object r;
+        Throwable ex;
+        if ((r = result) == null)
+            return Optional.empty();
+        if (!(r instanceof AltResult)) {
+            @SuppressWarnings("unchecked") T tr = (T) r;
+            return Optional.of(tr);
+        }
+        if ((ex = ((AltResult) r).ex) == null)
+            return null;
+        if (ex instanceof CancellationException)
+            throw (CancellationException) ex;
+        if (ex instanceof CompletionException)
+            throw (CompletionException) ex;
+        throw new CompletionException(ex);
     }
 
     @Override
