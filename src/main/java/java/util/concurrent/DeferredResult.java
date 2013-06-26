@@ -8,7 +8,7 @@ import java.util.function.*;
  * computation. Unlike {@link Future} DeferredResults can be observed and actions are provided
  * to execute when the results become available.
  * </p>
- * Actions are performed in the {@link java.util.concurrent.ForkJoinPool#commonPool()} unless an
+ * Actions are performed in the {@link ForkJoinPool#commonPool()} unless an
  * Executor is supplied. All operations for DeferredResult are designed to be non-blocking.
  * <p/>
  *
