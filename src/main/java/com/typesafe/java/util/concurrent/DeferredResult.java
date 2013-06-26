@@ -1,6 +1,8 @@
-package java.util.concurrent;
+package com.typesafe.java.util.concurrent;
 
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.*;
 
 /**

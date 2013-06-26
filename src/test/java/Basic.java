@@ -31,7 +31,10 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+import com.typesafe.java.util.concurrent.CompletableFuture;
+
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 
 import static java.util.concurrent.TimeUnit.*;
 
@@ -136,13 +139,26 @@ public class Basic {
         // supplier tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<String> cf = CompletableFuture.of(() -> "a test string");
-            checkCompletedNormally(cf, cf.join());
-            cf = CompletableFuture.of(() -> {
-                if (true) throw new RuntimeException();
-                else return "";
+            CompletableFuture<String> cfs;
+            CompletableFuture<Void> cfv;
+
+            cfs = CompletableFuture.of(() -> "a test string");
+            checkCompletedNormally(cfs, cfs.join());
+
+            cfv = CompletableFuture.of(() -> {
             });
-            checkCompletedExceptionally(cf);
+            checkCompletedNormally(cfv, cfv.join());
+
+            cfv = CompletableFuture.of((Supplier<Void>) () -> {
+                throw new RuntimeException();
+            });
+            checkCompletedExceptionally(cfv);
+
+            cfv = CompletableFuture.of((Runnable) () -> {
+                throw new RuntimeException();
+            });
+            checkCompletedExceptionally(cfv);
+
         } catch (Throwable t) {
             unexpected(t);
         }

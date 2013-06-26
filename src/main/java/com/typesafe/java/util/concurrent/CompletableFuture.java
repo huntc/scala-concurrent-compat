@@ -1,7 +1,8 @@
-package java.util.concurrent;
+package com.typesafe.java.util.concurrent;
 
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.*;
@@ -2198,7 +2199,8 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
 
     static {
         try {
-            UNSAFE = sun.misc.Unsafe.getUnsafe();
+            //UNSAFE = sun.misc.Unsafe.getUnsafe(); // FIXME: Uncomment this one when incorporating into the JDK
+            UNSAFE = Unsafe.instance;
             Class<?> k = CompletableFuture.class;
             RESULT = UNSAFE.objectFieldOffset
                     (k.getDeclaredField("result"));
