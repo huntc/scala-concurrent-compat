@@ -1,5 +1,6 @@
 package java.util.concurrent;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
@@ -41,21 +42,11 @@ import java.util.function.*;
  * Method {@link #cancel cancel} has the same effect as
  * {@code completeExceptionally(new CancellationException())}.
  * <p/>
- * <p>Upon exceptional completion (including cancellation), or when a
- * completion entails an additional computation which terminates
- * abruptly with an (unchecked) exception or error, then all of their
- * dependent completions (and their dependents in turn) generally act
- * as {@code completeExceptionally} with a {@link CompletionException}
- * holding that exception as its cause.  However, the {@link
- * #exceptionally exceptionally} and {@link #handle handle}
- * completions <em>are</em> able to handle exceptional completions of
- * the CompletableFutures they depend on.
- * <p/>
  * <p>In case of exceptional completion with a CompletionException,
  * methods {@link #get()} and {@link #get(long, TimeUnit)} throw an
  * {@link ExecutionException} with the same cause as held in the
  * corresponding CompletionException.  However, in these cases,
- * methods {@link #join()} and {@link #getNow} throw the
+ * methods {@link #join()} and {@link #value} throw the
  * CompletionException, which simplifies usage.
  * <p/>
  * <p>Arguments used to pass a completion result (that is, for parameters
@@ -1558,8 +1549,8 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      *                 to complete the returned CompletableFuture
      * @return the new CompletableFuture
      */
-    public static <U> CompletableFuture<U> supply(Supplier<U> supplier) {
-        return supply(supplier, ForkJoinPool.commonPool());
+    public static <U> CompletableFuture<U> of(Supplier<U> supplier) {
+        return of(supplier, ForkJoinPool.commonPool());
     }
 
     /**
@@ -1572,8 +1563,8 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param executor the executor to use for asynchronous execution
      * @return the new CompletableFuture
      */
-    public static <U> CompletableFuture<U> supply(Supplier<U> supplier,
-                                                  Executor executor) {
+    public static <U> CompletableFuture<U> of(Supplier<U> supplier,
+                                              Executor executor) {
         if (executor == null || supplier == null)
             throw new NullPointerException();
         CompletableFuture<U> f = new CompletableFuture<U>();
@@ -1590,7 +1581,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      *                 returned CompletableFuture
      * @return the new CompletableFuture
      */
-    public static CompletableFuture<Void> run(Runnable runnable) {
+    public static CompletableFuture<Void> of(Runnable runnable) {
         if (runnable == null) throw new NullPointerException();
         CompletableFuture<Void> f = new CompletableFuture<Void>();
         ForkJoinPool.commonPool().
@@ -1608,8 +1599,8 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param executor the executor to use for asynchronous execution
      * @return the new CompletableFuture
      */
-    public static CompletableFuture<Void> run(Runnable runnable,
-                                              Executor executor) {
+    public static CompletableFuture<Void> of(Runnable runnable,
+                                             Executor executor) {
         if (executor == null || runnable == null)
             throw new NullPointerException();
         CompletableFuture<Void> f = new CompletableFuture<Void>();
@@ -1624,9 +1615,22 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param value the value
      * @return the completed CompletableFuture
      */
-    public static <U> CompletableFuture<U> completedFuture(U value) {
+    public static <U> CompletableFuture<U> successful(U value) {
         CompletableFuture<U> f = new CompletableFuture<U>();
         f.result = (value == null) ? NIL : value;
+        return f;
+    }
+
+    /**
+     * Returns a new CompletableFuture that is already completed with
+     * a throwable.
+     *
+     * @param value the throwable
+     * @return the completed CompletableFuture
+     */
+    public static CompletableFuture<Throwable> failed(Throwable value) {
+        CompletableFuture<Throwable> f = new CompletableFuture<>();
+        f.result = (value == null) ? NIL : new AltResult(value);
         return f;
     }
 
@@ -1794,7 +1798,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
             return Optional.of(tr);
         }
         if ((ex = ((AltResult) r).ex) == null)
-            return null;
+            return Optional.empty();
         if (ex instanceof CancellationException)
             throw (CancellationException) ex;
         if (ex instanceof CompletionException)
@@ -1804,7 +1808,17 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
 
     @Override
     public DeferredResult<Throwable> failed() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        CompletableFuture<Throwable> dst = new CompletableFuture<>();
+        onComplete(() -> {
+            Object r;
+            if (((r = result) instanceof AltResult)) {
+                dst.complete(((AltResult) r).ex);
+            } else {
+                dst.completeExceptionally(new NoSuchElementException(
+                        "CompletableFuture.failed not completed with a throwable"));
+            }
+        });
+        return dst;
     }
 
     @Override
