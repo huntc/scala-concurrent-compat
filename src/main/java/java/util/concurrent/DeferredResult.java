@@ -154,37 +154,40 @@ public interface DeferredResult<T> {
     DeferredResult<T> filter(Predicate<? super T> predicate, Executor executor);
 
     /**
-     * Performs a mutable reduction operation on the result. A mutable reduction is one in which
-     * the reduced value is a mutable value holder, such as an ArrayList, and elements are incorporated by
-     * updating the state of the result, rather than by replacing the result.
+     * Creates a new result by mapping the value of the current result.
+     * <p/>
+     * If the current result contains a value for which the collector handles,
+     * the new result will also hold that value.
+     * Otherwise, the resulting future will fail with a `NoSuchElementException`.
+     * <p/>
+     * If the current result fails, then the returned result also fails.
      */
-    default <R> R collect(Supplier<R> resultFactory,
-                          BiConsumer<R, ? super T> accumulator,
-                          BiConsumer<R, R> combiner) {
-        return collect(resultFactory, accumulator, combiner, ForkJoinPool.commonPool());
+    default <R> DeferredResult<R> collect(Function<? super T, Optional<? extends R>> collector) {
+        return collect(collector, ForkJoinPool.commonPool());
     }
 
-    <R> R collect(Supplier<R> resultFactory,
-                  BiConsumer<R, ? super T> accumulator,
-                  BiConsumer<R, R> combiner,
-                  Executor executor);
+    <R> DeferredResult<R> collect(Function<? super T, Optional<? extends R>> collector, Executor executor);
 
     /**
      * Creates a new result that will handle any matching throwable that this
      * result might contain. If there is no match, or if this result contains
      * a valid result then the new result will contain the same.
      */
-    default <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery) {
+    default <R> DeferredResult<R> recover(
+            Function<? super Throwable, Optional<? extends R>> recovery) {
         return recover(recovery, ForkJoinPool.commonPool());
     }
 
-    <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery, Executor executor);
+    <R> DeferredResult<R> recover(
+            Function<? super Throwable, Optional<? extends R>> recovery, Executor executor);
 
-    default <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery) {
+    default <R> DeferredResult<R> recoverWith(
+            Function<? super Throwable, Optional<DeferredResult<? extends R>>> recovery) {
         return recoverWith(recovery, ForkJoinPool.commonPool());
     }
 
-    <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery, Executor executor);
+    <R> DeferredResult<R> recoverWith(
+            Function<? super Throwable, Optional<DeferredResult<? extends R>>> recovery, Executor executor);
 
     /**
      * Creates a new result which holds the value of this result if it was completed successfully, or, if not,

@@ -1833,17 +1833,17 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     }
 
     @Override
-    public <R> R collect(Supplier<R> resultFactory, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner, Executor executor) {
+    public <R> DeferredResult<R> collect(Function<? super T, Optional<? extends R>> collector, Executor executor) {
+        return null;
+    }
+
+    @Override
+    public <R> DeferredResult<R> recover(Function<? super Throwable, Optional<? extends R>> recovery, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public <R> DeferredResult<R> recover(Function<? super Throwable, ? extends R> recovery, Executor executor) {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public <R> DeferredResult<R> recoverWith(Function<? super Throwable, DeferredResult<? extends R>> recovery, Executor executor) {
+    public <R> DeferredResult<R> recoverWith(Function<? super Throwable, Optional<DeferredResult<? extends R>>> recovery, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
