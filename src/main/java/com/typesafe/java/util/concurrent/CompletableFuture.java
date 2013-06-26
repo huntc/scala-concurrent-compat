@@ -2043,7 +2043,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
          BiFunction<? super T,? super U,? extends V> fn,
          Executor e) {
         if (other == null || fn == null) throw new NullPointerException();
-        CompletableFuture<? extends U> otherCf = (CompletableFuture<? extends U>) other;
+        CompletableFuture<? extends U> otherCf = completableFuture(other);
         CompletableFuture<V> dst = new CompletableFuture<V>();
         ThenCombine<T,U,V> d = null;
         Object r, s = null;
@@ -2185,7 +2185,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
          BiConsumer<? super T,? super U> fn,
          Executor e) {
         if (other == null || fn == null) throw new NullPointerException();
-        CompletableFuture<? extends U> otherCf = (CompletableFuture<? extends U>) other;
+        CompletableFuture<? extends U> otherCf = completableFuture(other);
         CompletableFuture<Void> dst = new CompletableFuture<Void>();
         ThenAcceptBoth<T,U> d = null;
         Object r, s = null;
@@ -2320,7 +2320,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
                                                 Runnable action,
                                                 Executor e) {
         if (other == null || action == null) throw new NullPointerException();
-        CompletableFuture<?> otherCf = (CompletableFuture<?>) other;
+        CompletableFuture<?> otherCf = completableFuture(other);
         CompletableFuture<Void> dst = new CompletableFuture<Void>();
         RunAfterBoth d = null;
         Object r, s = null;
@@ -2461,7 +2461,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
          Function<? super T, U> fn,
          Executor e) {
         if (other == null || fn == null) throw new NullPointerException();
-        CompletableFuture<? extends T> otherCf = (CompletableFuture<? extends T>) other;
+        CompletableFuture<? extends T> otherCf = completableFuture(other);
         CompletableFuture<U> dst = new CompletableFuture<U>();
         ApplyToEither<T,U> d = null;
         Object r;
@@ -2600,7 +2600,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
          Consumer<? super T> fn,
          Executor e) {
         if (other == null || fn == null) throw new NullPointerException();
-        CompletableFuture<? extends T> otherCf = (CompletableFuture<? extends T>) other;
+        CompletableFuture<? extends T> otherCf = completableFuture(other);
         CompletableFuture<Void> dst = new CompletableFuture<Void>();
         AcceptEither<T> d = null;
         Object r;
@@ -2734,7 +2734,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
          Runnable action,
          Executor e) {
         if (other == null || action == null) throw new NullPointerException();
-        CompletableFuture<?> otherCf = (CompletableFuture<?>) other;
+        CompletableFuture<?> otherCf = completableFuture(other);
         CompletableFuture<Void> dst = new CompletableFuture<Void>();
         RunAfterEither d = null;
         Object r;
@@ -2844,7 +2844,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
         (Function<? super T, DeferredResult<U>> fn,
          Executor e) {
         if (fn == null) throw new NullPointerException();
-        Function<? super T, CompletableFuture<U>> fnCf = v -> (CompletableFuture<U>) fn.apply(v);
+        Function<? super T, CompletableFuture<U>> fnCf = v -> completableFuture(fn.apply(v));
         CompletableFuture<U> dst = null;
         ThenCompose<T,U> d = null;
         Object r;
@@ -3316,6 +3316,31 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
              (((r instanceof AltResult) && ((AltResult)r).ex != null) ?
               "[Completed exceptionally]" :
               "[Completed normally]"));
+    }
+
+    /* ------------- Coercion -------------- */
+
+    /**
+     * Return a CompletableFuture representing the {@link DeferredResult}. Note that completing the returned
+     * CompletableFuture will not complete a DeferredResult, as the latter is not completable, unless the
+     * DeferredResult passed in is a CompletableFuture in the first instance.
+     *
+     * @param dr  the {@link DeferredResult}
+     * @param <U> The value type of the {@link DeferredResult}
+     * @return a CompletableFuture for the {@link DeferredResult}
+     */
+    public static <U> CompletableFuture<U> completableFuture(DeferredResult<U> dr) {
+        if (dr instanceof CompletableFuture) return (CompletableFuture) dr;
+        CompletableFuture<U> cf = new CompletableFuture<>();
+        dr.handle((value, ex) -> {
+            if (value == null) {
+                cf.completeExceptionally(ex);
+            } else {
+                cf.complete(value);
+            }
+            return cf;
+        });
+        return cf;
     }
 
     // Unsafe mechanics
