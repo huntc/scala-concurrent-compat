@@ -1,5 +1,6 @@
-package java.util.concurrent;
+package com.typesafe.java.util.concurrent;
 
+import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;

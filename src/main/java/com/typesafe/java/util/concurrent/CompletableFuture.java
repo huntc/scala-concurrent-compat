@@ -33,21 +33,16 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-package java.util.concurrent;
+package com.typesafe.java.util.concurrent;
+
+import scala.concurrent.util.Unsafe;
+
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.BiFunction;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
@@ -3330,7 +3325,8 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     private static final long COMPLETIONS;
     static {
         try {
-            UNSAFE = sun.misc.Unsafe.getUnsafe();
+            //UNSAFE = sun.misc.Unsafe.getUnsafe(); // FIXME: This is required for the JDK version
+            UNSAFE = Unsafe.instance;
             Class<?> k = CompletableFuture.class;
             RESULT = UNSAFE.objectFieldOffset
                 (k.getDeclaredField("result"));

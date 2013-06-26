@@ -41,8 +41,10 @@
 import java.lang.reflect.Array;
 import java.util.concurrent.Phaser;
 import static java.util.concurrent.TimeUnit.*;
-import java.util.concurrent.CompletableFuture;
-import static java.util.concurrent.CompletableFuture.*;
+import com.typesafe.java.util.concurrent.CompletableFuture;
+import com.typesafe.java.util.concurrent.DeferredResult;
+
+import static com.typesafe.java.util.concurrent.CompletableFuture.*;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -54,11 +56,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Basic {
 
-    static void checkCompletedNormally(CompletableFuture<?> cf, Object value) {
+    static void checkCompletedNormally(DeferredResult<?> cf, Object value) {
         checkCompletedNormally(cf, value == null ? null : new Object[] { value });
     }
 
-    static void checkCompletedNormally(CompletableFuture<?> cf, Object[] values) {
+    static void checkCompletedNormally(DeferredResult<?> pcf, Object[] values) {
+        CompletableFuture<?> cf = (CompletableFuture) pcf;
         try { equalAnyOf(cf.join(), values); } catch (Throwable x) { unexpected(x); }
         try { equalAnyOf(cf.getNow(null), values); } catch (Throwable x) { unexpected(x); }
         try { equalAnyOf(cf.get(), values); } catch (Throwable x) { unexpected(x); }
@@ -72,16 +75,17 @@ public class Basic {
               "Expected completeExceptionally() to fail");
     }
 
-    static <T> void checkCompletedExceptionally(CompletableFuture<T> cf)
+    static <T> void checkCompletedExceptionally(DeferredResult<T> cf)
         throws Exception
     {
         checkCompletedExceptionally(cf, false);
     }
 
     @SuppressWarnings("unchecked")
-    static <T> void checkCompletedExceptionally(CompletableFuture<T> cf, boolean cancelled)
+    static <T> void checkCompletedExceptionally(DeferredResult<T> pcf, boolean cancelled)
         throws Exception
     {
+        CompletableFuture<T> cf = (CompletableFuture) pcf;
         try { cf.join(); fail("Excepted exception to be thrown"); }
         catch (CompletionException x) { if (cancelled) fail(); else pass(); }
         catch (CancellationException x) { if (cancelled) pass(); else fail(); }
@@ -188,7 +192,7 @@ public class Basic {
         // thenApplyXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Integer> cf2;
+            DeferredResult<Integer> cf2;
             CompletableFuture<String> cf1 = supplyAsync(() -> "a test string");
             cf2 = cf1.thenApply((x) -> { if (x.equals("a test string")) return 1; else return 0; });
             checkCompletedNormally(cf1, "a test string");
@@ -224,7 +228,7 @@ public class Basic {
         // thenAcceptXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Void> cf2;
+            DeferredResult<Void> cf2;
             int before = atomicInt.get();
             CompletableFuture<String> cf1 = supplyAsync(() -> "a test string");
             cf2 = cf1.thenAccept((x) -> { if (x.equals("a test string")) { atomicInt.incrementAndGet(); return; } throw new RuntimeException(); });
@@ -270,7 +274,7 @@ public class Basic {
         // thenRunXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Void> cf2;
+            DeferredResult<Void> cf2;
             int before = atomicInt.get();
             CompletableFuture<String> cf1 = supplyAsync(() -> "a test string");
             cf2 = cf1.thenRun(() -> { atomicInt.incrementAndGet(); });
@@ -316,7 +320,7 @@ public class Basic {
         // thenCombineXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Integer> cf3;
+            DeferredResult<Integer> cf3;
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             CompletableFuture<Integer> cf2 = supplyAsync(() -> 1);
             cf3 = cf1.thenCombine(cf2, (x, y) -> { return x + y; });
@@ -364,7 +368,7 @@ public class Basic {
         // thenAcceptBothXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Void> cf3;
+            DeferredResult<Void> cf3;
             int before = atomicInt.get();
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             CompletableFuture<Integer> cf2 = supplyAsync(() -> 1);
@@ -422,7 +426,7 @@ public class Basic {
         // runAfterBothXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Void> cf3;
+            DeferredResult<Void> cf3;
             int before = atomicInt.get();
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             CompletableFuture<Integer> cf2 = supplyAsync(() -> 1);
@@ -482,7 +486,7 @@ public class Basic {
         // applyToEitherXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Integer> cf3;
+            DeferredResult<Integer> cf3;
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             CompletableFuture<Integer> cf2 = supplyAsync(() -> 2);
             cf3 = cf1.applyToEither(cf2, (x) -> { check(x == 1 || x == 2); return x; });
@@ -504,15 +508,15 @@ public class Basic {
             cf1 = supplyAsync(() -> { throw new RuntimeException(); });
             cf2 = supplyAsync(() -> 2);
             cf3 = cf1.applyToEither(cf2, (x) -> { check(x == 2); return x; });
-            try { check(cf3.join() == 2); } catch (CompletionException x) { pass(); }
-            check(cf3.isDone());
+            try { check(((CompletableFuture)cf3).join() == 2); } catch (CompletionException x) { pass(); }
+            check(((CompletableFuture)cf3).isDone());
             check(cf1.isDone() || cf2.isDone());
 
             cf1 = supplyAsync(() -> 1);
             cf2 = supplyAsync(() -> { throw new RuntimeException(); });
             cf3 = cf1.applyToEitherAsync(cf2, (x) -> { check(x == 1); return x; });
-            try { check(cf3.join() == 1); } catch (CompletionException x) { pass(); }
-            check(cf3.isDone());
+            try { check(((CompletableFuture)cf3).join() == 1); } catch (CompletionException x) { pass(); }
+            check(((CompletableFuture)cf3).isDone());
             check(cf1.isDone() || cf2.isDone());
 
             cf1 = supplyAsync(() -> { throw new RuntimeException(); });
@@ -547,7 +551,7 @@ public class Basic {
         // acceptEitherXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Void> cf3;
+            DeferredResult<Void> cf3;
             int before = atomicInt.get();
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             CompletableFuture<Integer> cf2 = supplyAsync(() -> 2);
@@ -575,15 +579,15 @@ public class Basic {
             cf1 = supplyAsync(() -> { throw new RuntimeException(); });
             cf2 = supplyAsync(() -> 2);
             cf3 = cf2.acceptEitherAsync(cf1, (x) -> { check(x == 2); }, executor);
-            try { check(cf3.join() == null); } catch (CompletionException x) { pass(); }
-            check(cf3.isDone());
+            try { check(((CompletableFuture)cf3).join() == null); } catch (CompletionException x) { pass(); }
+            check(((CompletableFuture)cf3).isDone());
             check(cf1.isDone() || cf2.isDone());
 
             cf1 = supplyAsync(() -> 1);
             cf2 = supplyAsync(() -> { throw new RuntimeException(); });
             cf3 = cf2.acceptEitherAsync(cf1, (x) -> { check(x == 1); });
-            try { check(cf3.join() == null); } catch (CompletionException x) { pass(); }
-            check(cf3.isDone());
+            try { check(((CompletableFuture)cf3).join() == null); } catch (CompletionException x) { pass(); }
+            check(((CompletableFuture)cf3).isDone());
             check(cf1.isDone() || cf2.isDone());
 
             cf1 = supplyAsync(() -> { throw new RuntimeException(); });
@@ -618,7 +622,7 @@ public class Basic {
         // runAfterEitherXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Void> cf3;
+            DeferredResult<Void> cf3;
             int before = atomicInt.get();
             CompletableFuture<Void> cf1 = runAsync(() -> { });
             CompletableFuture<Void> cf2 = runAsync(() -> { });
@@ -648,10 +652,10 @@ public class Basic {
             cf2 = runAsync(() -> { });
             cf3 = cf2.runAfterEither(cf1, () -> { atomicInt.incrementAndGet(); });
             try {
-                check(cf3.join() == null);
+                check(((CompletableFuture)cf3).join() == null);
                 check(atomicInt.get() == (before + 1));
             } catch (CompletionException x) { pass(); }
-            check(cf3.isDone());
+            check(((CompletableFuture)cf3).isDone());
             check(cf1.isDone() || cf2.isDone());
 
             before = atomicInt.get();
@@ -659,10 +663,10 @@ public class Basic {
             cf2 = runAsync(() -> { throw new RuntimeException(); });
             cf3 = cf1.runAfterEitherAsync(cf2, () -> { atomicInt.incrementAndGet(); });
             try {
-                check(cf3.join() == null);
+                check(((CompletableFuture)cf3).join() == null);
                 check(atomicInt.get() == (before + 1));
             } catch (CompletionException x) { pass(); }
-            check(cf3.isDone());
+            check(((CompletableFuture)cf3).isDone());
             check(cf1.isDone() || cf2.isDone());
 
             before = atomicInt.get();
@@ -703,7 +707,7 @@ public class Basic {
         // thenComposeXXX tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Integer> cf2;
+            DeferredResult<Integer> cf2;
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             cf2 = cf1.thenCompose((x) -> { check(x ==1); return CompletableFuture.completedFuture(2); });
             checkCompletedNormally(cf1, 1);
@@ -775,7 +779,7 @@ public class Basic {
         // exceptionally tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Integer> cf2;
+            DeferredResult<Integer> cf2;
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             cf2 = cf1.exceptionally((t) -> { fail("function should never be called"); return 2;});
             checkCompletedNormally(cf1, 1);
@@ -792,7 +796,7 @@ public class Basic {
         // handle tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<Integer> cf2;
+            DeferredResult<Integer> cf2;
             CompletableFuture<Integer> cf1 = supplyAsync(() -> 1);
             cf2 = cf1.handle((x,t) -> x+1);
             checkCompletedNormally(cf1, 1);
