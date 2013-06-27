@@ -20,30 +20,6 @@ import java.util.function.*;
  */
 public interface DeferredResult<T> {
 
-    /* Creational methods */
-
-    /**
-     * Returns a new DeferredResult that is already completed with
-     * the given value.
-     *
-     * @param value the value
-     * @return the completed DeferredResult
-     */
-    static <U> DeferredResult<U> successful(U value) {
-        return CompletableFuture.successful(value);
-    }
-
-    /**
-     * Returns a new DeferredResult that is already completed with
-     * a throwable.
-     *
-     * @param value the throwable
-     * @return the completed CompletableFuture
-     */
-    static DeferredResult<Throwable> failed(Throwable value) {
-        return CompletableFuture.failed(value);
-    }
-
     /* Traversing methods */
 
     /**
