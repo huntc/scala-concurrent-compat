@@ -35,8 +35,6 @@
 
 package com.typesafe.java.util.concurrent;
 
-import scala.concurrent.util.Unsafe;
-
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 import java.util.function.Consumer;
