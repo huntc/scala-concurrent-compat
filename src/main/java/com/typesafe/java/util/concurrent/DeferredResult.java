@@ -12,61 +12,6 @@ import java.util.function.*;
  * @since 1.8
  */
 public interface DeferredResult<T> {
-    /**
-     * Returns a new DeferredResult that is asynchronously completed
-     * by a task running in the {@link ForkJoinPool#commonPool()} with
-     * the value obtained by calling the given Supplier.
-     *
-     * @param supplier a function returning the value to be used
-     * to complete the returned DeferredResult
-     * @return the new DeferredResult
-     */
-    static <U> DeferredResult<U> supplyAsync(Supplier<U> supplier) {
-        return CompletableFuture.supplyAsync(supplier);
-    }
-
-    /**
-     * Returns a new DeferredResult that is asynchronously completed
-     * by a task running in the given executor with the value obtained
-     * by calling the given Supplier.
-     *
-     * @param supplier a function returning the value to be used
-     * to complete the returned DeferredResult
-     * @param executor the executor to use for asynchronous execution
-     * @return the new DeferredResult
-     */
-    static <U> DeferredResult<U> supplyAsync(Supplier<U> supplier,
-                                                    Executor executor) {
-        return CompletableFuture.supplyAsync(supplier, executor);
-    }
-
-    /**
-     * Returns a new DeferredResult that is asynchronously completed
-     * by a task running in the {@link ForkJoinPool#commonPool()} after
-     * it runs the given action.
-     *
-     * @param runnable the action to run before completing the
-     * returned DeferredResult
-     * @return the new DeferredResult
-     */
-    static DeferredResult<Void> runAsync(Runnable runnable) {
-        return CompletableFuture.runAsync(runnable);
-    }
-
-    /**
-     * Returns a new DeferredResult that is asynchronously completed
-     * by a task running in the given executor after it runs the given
-     * action.
-     *
-     * @param runnable the action to run before completing the
-     * returned DeferredResult
-     * @param executor the executor to use for asynchronous execution
-     * @return the new DeferredResult
-     */
-    static DeferredResult<Void> runAsync(Runnable runnable,
-                                                Executor executor) {
-        return CompletableFuture.runAsync(runnable, executor);
-    }
 
     /**
      * Returns a new DeferredResult that is already completed with

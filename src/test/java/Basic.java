@@ -45,8 +45,8 @@ import java.lang.reflect.Array;
 import java.util.concurrent.Phaser;
 
 import static com.typesafe.java.util.concurrent.CompletableFuture.completableFuture;
-import static com.typesafe.java.util.concurrent.DeferredResult.runAsync;
-import static com.typesafe.java.util.concurrent.DeferredResult.supplyAsync;
+import static com.typesafe.java.util.concurrent.CompletableFuture.runAsync;
+import static com.typesafe.java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.*;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CancellationException;

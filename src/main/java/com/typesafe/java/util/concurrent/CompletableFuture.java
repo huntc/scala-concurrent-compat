@@ -1409,9 +1409,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      *
      * @param supplier a function returning the value to be used
      * to complete the returned CompletableFuture
-     * @return the new CompletableFuture
+     * @return the new DeferredResult
      */
-    public static <U> CompletableFuture<U> supplyAsync(Supplier<U> supplier) {
+    public static <U> DeferredResult<U> supplyAsync(Supplier<U> supplier) {
         if (supplier == null) throw new NullPointerException();
         CompletableFuture<U> f = new CompletableFuture<U>();
         ForkJoinPool.commonPool().
@@ -1427,10 +1427,10 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param supplier a function returning the value to be used
      * to complete the returned CompletableFuture
      * @param executor the executor to use for asynchronous execution
-     * @return the new CompletableFuture
+     * @return the new DeferredResult
      */
-    public static <U> CompletableFuture<U> supplyAsync(Supplier<U> supplier,
-                                                       Executor executor) {
+    public static <U> DeferredResult<U> supplyAsync(Supplier<U> supplier,
+                                                    Executor executor) {
         if (executor == null || supplier == null)
             throw new NullPointerException();
         CompletableFuture<U> f = new CompletableFuture<U>();
@@ -1445,9 +1445,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      *
      * @param runnable the action to run before completing the
      * returned CompletableFuture
-     * @return the new CompletableFuture
+     * @return the new DeferredResult
      */
-    public static CompletableFuture<Void> runAsync(Runnable runnable) {
+    public static DeferredResult<Void> runAsync(Runnable runnable) {
         if (runnable == null) throw new NullPointerException();
         CompletableFuture<Void> f = new CompletableFuture<Void>();
         ForkJoinPool.commonPool().
@@ -1463,10 +1463,10 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param runnable the action to run before completing the
      * returned CompletableFuture
      * @param executor the executor to use for asynchronous execution
-     * @return the new CompletableFuture
+     * @return the new DeferredResult
      */
-    public static CompletableFuture<Void> runAsync(Runnable runnable,
-                                                   Executor executor) {
+    public static DeferredResult<Void> runAsync(Runnable runnable,
+                                                Executor executor) {
         if (executor == null || runnable == null)
             throw new NullPointerException();
         CompletableFuture<Void> f = new CompletableFuture<Void>();
