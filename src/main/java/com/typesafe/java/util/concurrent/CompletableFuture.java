@@ -771,35 +771,32 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     @Override
     public void onSuccess(Consumer<? super T> action, Executor executor) {
         if (executor == null) throw new NullPointerException();
-        BiFunction<? super T, Throwable, Void> fn = (value, ex) -> {
+        doHandle((value, ex) -> {
             if (ex == null) {
                 executor.execute(new AsyncAccept<>(value, action, new CompletableFuture<>()));
             }
             return null;
-        };
-        doHandle(fn);
+        });
     }
 
     @Override
     public void onFailure(Consumer<? super Throwable> failure, Executor executor) {
         if (executor == null) throw new NullPointerException();
-        BiFunction<? super T, Throwable, Void> fn = (value, ex) -> {
-            if (ex == null) {
+        doHandle((value, ex) -> {
+            if (ex != null) {
                 executor.execute(new AsyncAccept<>(ex, failure, new CompletableFuture<>()));
             }
             return null;
-        };
-        doHandle(fn);
+        });
     }
 
     @Override
     public void onComplete(Runnable action, Executor executor) {
         if (executor == null) throw new NullPointerException();
-        BiFunction<? super T, Throwable, Void> fn = (value, ex) -> {
+        doHandle((value, ex) -> {
             executor.execute(new AsyncRun(action, new CompletableFuture<>()));
             return null;
-        };
-        doHandle(fn);
+        });
     }
 
     @Override
@@ -828,7 +825,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
 
     @Override
     public DeferredResult<Throwable> failed() {
-        CompletableFuture<Throwable> dst = new CompletableFuture<>();
+        final CompletableFuture<Throwable> dst = new CompletableFuture<>();
         onComplete(() -> {
             Object r;
             if (((r = result) instanceof AltResult)) {
