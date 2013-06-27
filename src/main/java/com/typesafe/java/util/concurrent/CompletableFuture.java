@@ -597,11 +597,14 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      *
      * @param supplier a function returning the value to be used
      *                 to complete the returned CompletableFuture
-     * @param executor the executor to use for asynchronous execution
-     * @return the new CompletableFuture
+     * @return the new DeferredResult
      */
-    public static <U> CompletableFuture<U> of(Supplier<U> supplier,
-                                              Executor executor) {
+    public static <U> DeferredResult<U> of(Supplier<U> supplier) {
+        return of(supplier, ForkJoinPool.commonPool());
+    }
+
+    public static <U> DeferredResult<U> of(Supplier<U> supplier,
+                                           Executor executor) {
         if (executor == null || supplier == null)
             throw new NullPointerException();
         CompletableFuture<U> f = new CompletableFuture<U>();
@@ -617,10 +620,14 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param runnable the action to run before completing the
      *                 returned CompletableFuture
      * @param executor the executor to use for asynchronous execution
-     * @return the new CompletableFuture
+     * @return the new DeferredResult
      */
-    public static CompletableFuture<Void> of(Runnable runnable,
-                                             Executor executor) {
+    public static DeferredResult<Void> of(Runnable runnable) {
+        return of(runnable, ForkJoinPool.commonPool());
+    }
+
+    public static DeferredResult<Void> of(Runnable runnable,
+                                          Executor executor) {
         if (executor == null || runnable == null)
             throw new NullPointerException();
         CompletableFuture<Void> f = new CompletableFuture<Void>();
@@ -633,9 +640,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * the given value.
      *
      * @param value the value
-     * @return the completed CompletableFuture
+     * @return the completed DeferredResult
      */
-    public static <U> CompletableFuture<U> successful(U value) {
+    public static <U> DeferredResult<U> successful(U value) {
         CompletableFuture<U> f = new CompletableFuture<U>();
         f.result = (value == null) ? NIL : value;
         return f;
@@ -646,9 +653,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * a throwable.
      *
      * @param value the throwable
-     * @return the completed CompletableFuture
+     * @return the completed DeferredResult
      */
-    public static CompletableFuture<Throwable> failed(Throwable value) {
+    public static DeferredResult<Throwable> failed(Throwable value) {
         CompletableFuture<Throwable> f = new CompletableFuture<>();
         f.result = (value == null) ? NIL : new AltResult(value);
         return f;

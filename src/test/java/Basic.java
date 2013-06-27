@@ -146,19 +146,19 @@ public class Basic {
             DeferredResult<String> drs;
             DeferredResult<Void> drv;
 
-            drs = DeferredResult.of(() -> "a test string");
+            drs = CompletableFuture.of(() -> "a test string");
             checkCompletedNormally(drs, completableFuture(drs).join());
 
-            drv = DeferredResult.of(() -> {
+            drv = CompletableFuture.of(() -> {
             });
             checkCompletedNormally(drv, completableFuture(drv).join());
 
-            drv = DeferredResult.of((Supplier<Void>) () -> {
+            drv = CompletableFuture.of((Supplier<Void>) () -> {
                 throw new RuntimeException();
             });
             checkCompletedExceptionally(drv);
 
-            drv = DeferredResult.of((Runnable) () -> {
+            drv = CompletableFuture.of((Runnable) () -> {
                 throw new RuntimeException();
             });
             checkCompletedExceptionally(drv);
