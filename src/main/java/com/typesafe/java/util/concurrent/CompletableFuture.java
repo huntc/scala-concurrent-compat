@@ -443,73 +443,6 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
         private static final long serialVersionUID = 5232453952276885070L;
     }
 
-    static final class AsyncApply<T, U> extends Async {
-        final T arg;
-        final Function<? super T, ? extends U> fn;
-        final CompletableFuture<U> dst;
-
-        AsyncApply(T arg, Function<? super T, ? extends U> fn,
-                   CompletableFuture<U> dst) {
-            this.arg = arg;
-            this.fn = fn;
-            this.dst = dst;
-        }
-
-        public final boolean exec() {
-            CompletableFuture<U> d;
-            U u;
-            Throwable ex;
-            if ((d = this.dst) != null && d.result == null) {
-                try {
-                    u = fn.apply(arg);
-                    ex = null;
-                } catch (Throwable rex) {
-                    ex = rex;
-                    u = null;
-                }
-                d.internalComplete(u, ex);
-            }
-            return true;
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class AsyncCombine<T, U, V> extends Async {
-        final T arg1;
-        final U arg2;
-        final BiFunction<? super T, ? super U, ? extends V> fn;
-        final CompletableFuture<V> dst;
-
-        AsyncCombine(T arg1, U arg2,
-                     BiFunction<? super T, ? super U, ? extends V> fn,
-                     CompletableFuture<V> dst) {
-            this.arg1 = arg1;
-            this.arg2 = arg2;
-            this.fn = fn;
-            this.dst = dst;
-        }
-
-        public final boolean exec() {
-            CompletableFuture<V> d;
-            V v;
-            Throwable ex;
-            if ((d = this.dst) != null && d.result == null) {
-                try {
-                    v = fn.apply(arg1, arg2);
-                    ex = null;
-                } catch (Throwable rex) {
-                    ex = rex;
-                    v = null;
-                }
-                d.internalComplete(v, ex);
-            }
-            return true;
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
     static final class AsyncAccept<T> extends Async {
         final T arg;
         final Consumer<? super T> fn;
@@ -540,86 +473,6 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
         private static final long serialVersionUID = 5232453952276885070L;
     }
 
-    static final class AsyncAcceptBoth<T, U> extends Async {
-        final T arg1;
-        final U arg2;
-        final BiConsumer<? super T, ? super U> fn;
-        final CompletableFuture<Void> dst;
-
-        AsyncAcceptBoth(T arg1, U arg2,
-                        BiConsumer<? super T, ? super U> fn,
-                        CompletableFuture<Void> dst) {
-            this.arg1 = arg1;
-            this.arg2 = arg2;
-            this.fn = fn;
-            this.dst = dst;
-        }
-
-        public final boolean exec() {
-            CompletableFuture<Void> d;
-            Throwable ex;
-            if ((d = this.dst) != null && d.result == null) {
-                try {
-                    fn.accept(arg1, arg2);
-                    ex = null;
-                } catch (Throwable rex) {
-                    ex = rex;
-                }
-                d.internalComplete(null, ex);
-            }
-            return true;
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class AsyncCompose<T, U> extends Async {
-        final T arg;
-        final Function<? super T, CompletableFuture<U>> fn;
-        final CompletableFuture<U> dst;
-
-        AsyncCompose(T arg,
-                     Function<? super T, CompletableFuture<U>> fn,
-                     CompletableFuture<U> dst) {
-            this.arg = arg;
-            this.fn = fn;
-            this.dst = dst;
-        }
-
-        public final boolean exec() {
-            CompletableFuture<U> d, fr;
-            U u;
-            Throwable ex;
-            if ((d = this.dst) != null && d.result == null) {
-                try {
-                    fr = fn.apply(arg);
-                    ex = (fr == null) ? new NullPointerException() : null;
-                } catch (Throwable rex) {
-                    ex = rex;
-                    fr = null;
-                }
-                if (ex != null)
-                    u = null;
-                else {
-                    Object r = fr.result;
-                    if (r == null)
-                        r = fr.waitingGet(false);
-                    if (r instanceof AltResult) {
-                        ex = ((AltResult) r).ex;
-                        u = null;
-                    } else {
-                        @SuppressWarnings("unchecked") U ur = (U) r;
-                        u = ur;
-                    }
-                }
-                d.internalComplete(u, ex);
-            }
-            return true;
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
     /* ------------- Completions -------------- */
 
     /**
@@ -639,725 +492,6 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
 
     // Opportunistically subclass AtomicInteger to use compareAndSet to claim.
     abstract static class Completion extends AtomicInteger implements Runnable {
-    }
-
-    static final class ThenApply<T, U> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final Function<? super T, ? extends U> fn;
-        final CompletableFuture<U> dst;
-        final Executor executor;
-
-        ThenApply(CompletableFuture<? extends T> src,
-                  Function<? super T, ? extends U> fn,
-                  CompletableFuture<U> dst,
-                  Executor executor) {
-            this.src = src;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final Function<? super T, ? extends U> fn;
-            final CompletableFuture<U> dst;
-            Object r;
-            T t;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                Executor e = executor;
-                U u = null;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncApply<T, U>(t, fn, dst));
-                        else
-                            u = fn.apply(t);
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(u, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ThenAccept<T> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final Consumer<? super T> fn;
-        final CompletableFuture<Void> dst;
-        final Executor executor;
-
-        ThenAccept(CompletableFuture<? extends T> src,
-                   Consumer<? super T> fn,
-                   CompletableFuture<Void> dst,
-                   Executor executor) {
-            this.src = src;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final Consumer<? super T> fn;
-            final CompletableFuture<Void> dst;
-            Object r;
-            T t;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                Executor e = executor;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncAccept<T>(t, fn, dst));
-                        else
-                            fn.accept(t);
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ThenRun extends Completion {
-        final CompletableFuture<?> src;
-        final Runnable fn;
-        final CompletableFuture<Void> dst;
-        final Executor executor;
-
-        ThenRun(CompletableFuture<?> src,
-                Runnable fn,
-                CompletableFuture<Void> dst,
-                Executor executor) {
-            this.src = src;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final Runnable fn;
-            final CompletableFuture<Void> dst;
-            Object r;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult)
-                    ex = ((AltResult) r).ex;
-                else
-                    ex = null;
-                Executor e = executor;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncRun(fn, dst));
-                        else
-                            fn.run();
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ThenCombine<T, U, V> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final CompletableFuture<? extends U> snd;
-        final BiFunction<? super T, ? super U, ? extends V> fn;
-        final CompletableFuture<V> dst;
-        final Executor executor;
-
-        ThenCombine(CompletableFuture<? extends T> src,
-                    CompletableFuture<? extends U> snd,
-                    BiFunction<? super T, ? super U, ? extends V> fn,
-                    CompletableFuture<V> dst,
-                    Executor executor) {
-            this.src = src;
-            this.snd = snd;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final CompletableFuture<? extends U> b;
-            final BiFunction<? super T, ? super U, ? extends V> fn;
-            final CompletableFuture<V> dst;
-            Object r, s;
-            T t;
-            U u;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    (b = this.snd) != null &&
-                    (s = b.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                if (ex != null)
-                    u = null;
-                else if (s instanceof AltResult) {
-                    ex = ((AltResult) s).ex;
-                    u = null;
-                } else {
-                    @SuppressWarnings("unchecked") U us = (U) s;
-                    u = us;
-                }
-                Executor e = executor;
-                V v = null;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncCombine<T, U, V>(t, u, fn, dst));
-                        else
-                            v = fn.apply(t, u);
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(v, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ThenAcceptBoth<T, U> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final CompletableFuture<? extends U> snd;
-        final BiConsumer<? super T, ? super U> fn;
-        final CompletableFuture<Void> dst;
-        final Executor executor;
-
-        ThenAcceptBoth(CompletableFuture<? extends T> src,
-                       CompletableFuture<? extends U> snd,
-                       BiConsumer<? super T, ? super U> fn,
-                       CompletableFuture<Void> dst,
-                       Executor executor) {
-            this.src = src;
-            this.snd = snd;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final CompletableFuture<? extends U> b;
-            final BiConsumer<? super T, ? super U> fn;
-            final CompletableFuture<Void> dst;
-            Object r, s;
-            T t;
-            U u;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    (b = this.snd) != null &&
-                    (s = b.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                if (ex != null)
-                    u = null;
-                else if (s instanceof AltResult) {
-                    ex = ((AltResult) s).ex;
-                    u = null;
-                } else {
-                    @SuppressWarnings("unchecked") U us = (U) s;
-                    u = us;
-                }
-                Executor e = executor;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncAcceptBoth<T, U>(t, u, fn, dst));
-                        else
-                            fn.accept(t, u);
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class RunAfterBoth extends Completion {
-        final CompletableFuture<?> src;
-        final CompletableFuture<?> snd;
-        final Runnable fn;
-        final CompletableFuture<Void> dst;
-        final Executor executor;
-
-        RunAfterBoth(CompletableFuture<?> src,
-                     CompletableFuture<?> snd,
-                     Runnable fn,
-                     CompletableFuture<Void> dst,
-                     Executor executor) {
-            this.src = src;
-            this.snd = snd;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final CompletableFuture<?> b;
-            final Runnable fn;
-            final CompletableFuture<Void> dst;
-            Object r, s;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    (b = this.snd) != null &&
-                    (s = b.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult)
-                    ex = ((AltResult) r).ex;
-                else
-                    ex = null;
-                if (ex == null && (s instanceof AltResult))
-                    ex = ((AltResult) s).ex;
-                Executor e = executor;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncRun(fn, dst));
-                        else
-                            fn.run();
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class AndCompletion extends Completion {
-        final CompletableFuture<?> src;
-        final CompletableFuture<?> snd;
-        final CompletableFuture<Void> dst;
-
-        AndCompletion(CompletableFuture<?> src,
-                      CompletableFuture<?> snd,
-                      CompletableFuture<Void> dst) {
-            this.src = src;
-            this.snd = snd;
-            this.dst = dst;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final CompletableFuture<?> b;
-            final CompletableFuture<Void> dst;
-            Object r, s;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    (b = this.snd) != null &&
-                    (s = b.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult)
-                    ex = ((AltResult) r).ex;
-                else
-                    ex = null;
-                if (ex == null && (s instanceof AltResult))
-                    ex = ((AltResult) s).ex;
-                dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ApplyToEither<T, U> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final CompletableFuture<? extends T> snd;
-        final Function<? super T, ? extends U> fn;
-        final CompletableFuture<U> dst;
-        final Executor executor;
-
-        ApplyToEither(CompletableFuture<? extends T> src,
-                      CompletableFuture<? extends T> snd,
-                      Function<? super T, ? extends U> fn,
-                      CompletableFuture<U> dst,
-                      Executor executor) {
-            this.src = src;
-            this.snd = snd;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final CompletableFuture<? extends T> b;
-            final Function<? super T, ? extends U> fn;
-            final CompletableFuture<U> dst;
-            Object r;
-            T t;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (((a = this.src) != null && (r = a.result) != null) ||
-                            ((b = this.snd) != null && (r = b.result) != null)) &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                Executor e = executor;
-                U u = null;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncApply<T, U>(t, fn, dst));
-                        else
-                            u = fn.apply(t);
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(u, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class AcceptEither<T> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final CompletableFuture<? extends T> snd;
-        final Consumer<? super T> fn;
-        final CompletableFuture<Void> dst;
-        final Executor executor;
-
-        AcceptEither(CompletableFuture<? extends T> src,
-                     CompletableFuture<? extends T> snd,
-                     Consumer<? super T> fn,
-                     CompletableFuture<Void> dst,
-                     Executor executor) {
-            this.src = src;
-            this.snd = snd;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final CompletableFuture<? extends T> b;
-            final Consumer<? super T> fn;
-            final CompletableFuture<Void> dst;
-            Object r;
-            T t;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (((a = this.src) != null && (r = a.result) != null) ||
-                            ((b = this.snd) != null && (r = b.result) != null)) &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                Executor e = executor;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncAccept<T>(t, fn, dst));
-                        else
-                            fn.accept(t);
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class RunAfterEither extends Completion {
-        final CompletableFuture<?> src;
-        final CompletableFuture<?> snd;
-        final Runnable fn;
-        final CompletableFuture<Void> dst;
-        final Executor executor;
-
-        RunAfterEither(CompletableFuture<?> src,
-                       CompletableFuture<?> snd,
-                       Runnable fn,
-                       CompletableFuture<Void> dst,
-                       Executor executor) {
-            this.src = src;
-            this.snd = snd;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final CompletableFuture<?> b;
-            final Runnable fn;
-            final CompletableFuture<Void> dst;
-            Object r;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (((a = this.src) != null && (r = a.result) != null) ||
-                            ((b = this.snd) != null && (r = b.result) != null)) &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult)
-                    ex = ((AltResult) r).ex;
-                else
-                    ex = null;
-                Executor e = executor;
-                if (ex == null) {
-                    try {
-                        if (e != null)
-                            e.execute(new AsyncRun(fn, dst));
-                        else
-                            fn.run();
-                    } catch (Throwable rex) {
-                        ex = rex;
-                    }
-                }
-                if (e == null || ex != null)
-                    dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class OrCompletion extends Completion {
-        final CompletableFuture<?> src;
-        final CompletableFuture<?> snd;
-        final CompletableFuture<Object> dst;
-
-        OrCompletion(CompletableFuture<?> src,
-                     CompletableFuture<?> snd,
-                     CompletableFuture<Object> dst) {
-            this.src = src;
-            this.snd = snd;
-            this.dst = dst;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final CompletableFuture<?> b;
-            final CompletableFuture<Object> dst;
-            Object r, t;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (((a = this.src) != null && (r = a.result) != null) ||
-                            ((b = this.snd) != null && (r = b.result) != null)) &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    t = r;
-                }
-                dst.internalComplete(t, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ExceptionCompletion<T> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final Function<? super Throwable, ? extends T> fn;
-        final CompletableFuture<T> dst;
-
-        ExceptionCompletion(CompletableFuture<? extends T> src,
-                            Function<? super Throwable, ? extends T> fn,
-                            CompletableFuture<T> dst) {
-            this.src = src;
-            this.fn = fn;
-            this.dst = dst;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final Function<? super Throwable, ? extends T> fn;
-            final CompletableFuture<T> dst;
-            Object r;
-            T t = null;
-            Throwable ex, dx = null;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if ((r instanceof AltResult) &&
-                        (ex = ((AltResult) r).ex) != null) {
-                    try {
-                        t = fn.apply(ex);
-                    } catch (Throwable rex) {
-                        dx = rex;
-                    }
-                } else {
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                dst.internalComplete(t, dx);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    static final class ThenCopy<T> extends Completion {
-        final CompletableFuture<?> src;
-        final CompletableFuture<T> dst;
-
-        ThenCopy(CompletableFuture<?> src,
-                 CompletableFuture<T> dst) {
-            this.src = src;
-            this.dst = dst;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final CompletableFuture<T> dst;
-            Object r;
-            T t;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                dst.internalComplete(t, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
-    // version of ThenCopy for CompletableFuture<Void> dst
-    static final class ThenPropagate extends Completion {
-        final CompletableFuture<?> src;
-        final CompletableFuture<Void> dst;
-
-        ThenPropagate(CompletableFuture<?> src,
-                      CompletableFuture<Void> dst) {
-            this.src = src;
-            this.dst = dst;
-        }
-
-        public final void run() {
-            final CompletableFuture<?> a;
-            final CompletableFuture<Void> dst;
-            Object r;
-            Throwable ex;
-            if ((dst = this.dst) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult)
-                    ex = ((AltResult) r).ex;
-                else
-                    ex = null;
-                dst.internalComplete(null, ex);
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
     }
 
     static final class HandleCompletion<T, U> extends Completion {
@@ -1448,110 +582,12 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
         return dst;
     }
 
-    static final class ThenCompose<T, U> extends Completion {
-        final CompletableFuture<? extends T> src;
-        final Function<? super T, CompletableFuture<U>> fn;
-        final CompletableFuture<U> dst;
-        final Executor executor;
-
-        ThenCompose(CompletableFuture<? extends T> src,
-                    Function<? super T, CompletableFuture<U>> fn,
-                    CompletableFuture<U> dst,
-                    Executor executor) {
-            this.src = src;
-            this.fn = fn;
-            this.dst = dst;
-            this.executor = executor;
-        }
-
-        public final void run() {
-            final CompletableFuture<? extends T> a;
-            final Function<? super T, CompletableFuture<U>> fn;
-            final CompletableFuture<U> dst;
-            Object r;
-            T t;
-            Throwable ex;
-            Executor e;
-            if ((dst = this.dst) != null &&
-                    (fn = this.fn) != null &&
-                    (a = this.src) != null &&
-                    (r = a.result) != null &&
-                    compareAndSet(0, 1)) {
-                if (r instanceof AltResult) {
-                    ex = ((AltResult) r).ex;
-                    t = null;
-                } else {
-                    ex = null;
-                    @SuppressWarnings("unchecked") T tr = (T) r;
-                    t = tr;
-                }
-                CompletableFuture<U> c = null;
-                U u = null;
-                boolean complete = false;
-                if (ex == null) {
-                    if ((e = executor) != null)
-                        e.execute(new AsyncCompose<T, U>(t, fn, dst));
-                    else {
-                        try {
-                            if ((c = fn.apply(t)) == null)
-                                ex = new NullPointerException();
-                        } catch (Throwable rex) {
-                            ex = rex;
-                        }
-                    }
-                }
-                if (c != null) {
-                    ThenCopy<U> d = null;
-                    Object s;
-                    if ((s = c.result) == null) {
-                        CompletionNode p = new CompletionNode
-                                (d = new ThenCopy<U>(c, dst));
-                        while ((s = c.result) == null) {
-                            if (UNSAFE.compareAndSwapObject
-                                    (c, COMPLETIONS, p.next = c.completions, p))
-                                break;
-                        }
-                    }
-                    if (s != null && (d == null || d.compareAndSet(0, 1))) {
-                        complete = true;
-                        if (s instanceof AltResult) {
-                            ex = ((AltResult) s).ex;  // no rewrap
-                            u = null;
-                        } else {
-                            @SuppressWarnings("unchecked") U us = (U) s;
-                            u = us;
-                        }
-                    }
-                }
-                if (complete || ex != null)
-                    dst.internalComplete(u, ex);
-                if (c != null)
-                    c.helpPostComplete();
-            }
-        }
-
-        private static final long serialVersionUID = 5232453952276885070L;
-    }
-
     // public methods
 
     /**
      * Creates a new incomplete CompletableFuture.
      */
     public CompletableFuture() {
-    }
-
-    /**
-     * Returns a new CompletableFuture that is asynchronously completed
-     * by a task running in the {@link ForkJoinPool#commonPool()} with
-     * the value obtained by calling the given Supplier.
-     *
-     * @param supplier a function returning the value to be used
-     *                 to complete the returned CompletableFuture
-     * @return the new CompletableFuture
-     */
-    public static <U> CompletableFuture<U> of(Supplier<U> supplier) {
-        return of(supplier, ForkJoinPool.commonPool());
     }
 
     /**
@@ -1570,23 +606,6 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
             throw new NullPointerException();
         CompletableFuture<U> f = new CompletableFuture<U>();
         executor.execute(new AsyncSupply<U>(supplier, f));
-        return f;
-    }
-
-    /**
-     * Returns a new CompletableFuture that is asynchronously completed
-     * by a task running in the {@link ForkJoinPool#commonPool()} after
-     * it runs the given action.
-     *
-     * @param runnable the action to run before completing the
-     *                 returned CompletableFuture
-     * @return the new CompletableFuture
-     */
-    public static CompletableFuture<Void> of(Runnable runnable) {
-        if (runnable == null) throw new NullPointerException();
-        CompletableFuture<Void> f = new CompletableFuture<Void>();
-        ForkJoinPool.commonPool().
-                execute((ForkJoinTask<?>) new AsyncRun(runnable, f));
         return f;
     }
 
@@ -1872,217 +891,54 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    /* ------------- Arbitrary-arity constructions -------------- */
-
-    /*
-     * The basic plan of attack is to recursively form binary
-     * completion trees of elements. This can be overkill for small
-     * sets, but scales nicely. The And/All vs Or/Any forms use the
-     * same idea, but details differ.
-     */
+    /* ------------- Traversing methods -------------- */
 
     /**
-     * Returns a new CompletableFuture that is completed when all of
-     * the given CompletableFutures complete.  If any of the given
-     * CompletableFutures complete exceptionally, then the returned
-     * CompletableFuture also does so, with a CompletionException
-     * holding this exception as its cause.  Otherwise, the results,
-     * if any, of the given CompletableFutures are not reflected in
-     * the returned CompletableFuture, but may be obtained by
-     * inspecting them individually. If no CompletableFutures are
-     * provided, returns a CompletableFuture completed with the value
-     * {@code null}.
-     * <p/>
-     * <p>Among the applications of this method is to await completion
-     * of a set of independent CompletableFutures before continuing a
-     * program, as in: {@code CompletableFuture.allOf(c1, c2,
-     *c3).join();}.
-     *
-     * @param cfs the CompletableFutures
-     * @return a new CompletableFuture that is completed when all of the
-     *         given CompletableFutures complete
-     * @throws NullPointerException if the array or any of its elements are
-     *                              {@code null}
+     * Returns a result to the value of the first result in the list that is completed.
      */
-    public static CompletableFuture<Void> allOf(CompletableFuture<?>... cfs) {
-        int len = cfs.length; // Directly handle empty and singleton cases
-        if (len > 1)
-            return allTree(cfs, 0, len - 1);
-        else {
-            CompletableFuture<Void> dst = new CompletableFuture<Void>();
-            CompletableFuture<?> f;
-            if (len == 0)
-                dst.result = NIL;
-            else if ((f = cfs[0]) == null)
-                throw new NullPointerException();
-            else {
-                ThenPropagate d = null;
-                CompletionNode p = null;
-                Object r;
-                while ((r = f.result) == null) {
-                    if (d == null)
-                        d = new ThenPropagate(f, dst);
-                    else if (p == null)
-                        p = new CompletionNode(d);
-                    else if (UNSAFE.compareAndSwapObject
-                            (f, COMPLETIONS, p.next = f.completions, p))
-                        break;
-                }
-                if (r != null && (d == null || d.compareAndSet(0, 1)))
-                    dst.internalComplete(null, (r instanceof AltResult) ?
-                            ((AltResult) r).ex : null);
-                f.helpPostComplete();
-            }
-            return dst;
+    public static <U> CompletableFuture<U> firstCompletedOf(Executor executor, CompletableFuture<U>... cfs) {
+        final CompletableFuture<U> dst = new CompletableFuture<>();
+        for (CompletableFuture<U> cf : cfs) {
+            cf.onSuccess(value -> dst.complete(value), executor);
+            cf.onFailure(ex -> dst.completeExceptionally(ex), executor);
         }
-    }
-
-    /**
-     * Recursively constructs an And'ed tree of CompletableFutures.
-     * Called only when array known to have at least two elements.
-     */
-    private static CompletableFuture<Void> allTree(CompletableFuture<?>[] cfs,
-                                                   int lo, int hi) {
-        CompletableFuture<?> fst, snd;
-        int mid = (lo + hi) >>> 1;
-        if ((fst = (lo == mid ? cfs[lo] : allTree(cfs, lo, mid))) == null ||
-                (snd = (hi == mid + 1 ? cfs[hi] : allTree(cfs, mid + 1, hi))) == null)
-            throw new NullPointerException();
-        CompletableFuture<Void> dst = new CompletableFuture<Void>();
-        AndCompletion d = null;
-        CompletionNode p = null, q = null;
-        Object r = null, s = null;
-        while ((r = fst.result) == null || (s = snd.result) == null) {
-            if (d == null)
-                d = new AndCompletion(fst, snd, dst);
-            else if (p == null)
-                p = new CompletionNode(d);
-            else if (q == null) {
-                if (UNSAFE.compareAndSwapObject
-                        (fst, COMPLETIONS, p.next = fst.completions, p))
-                    q = new CompletionNode(d);
-            } else if (UNSAFE.compareAndSwapObject
-                    (snd, COMPLETIONS, q.next = snd.completions, q))
-                break;
-        }
-        if ((r != null || (r = fst.result) != null) &&
-                (s != null || (s = snd.result) != null) &&
-                (d == null || d.compareAndSet(0, 1))) {
-            Throwable ex;
-            if (r instanceof AltResult)
-                ex = ((AltResult) r).ex;
-            else
-                ex = null;
-            if (ex == null && (s instanceof AltResult))
-                ex = ((AltResult) s).ex;
-            dst.internalComplete(null, ex);
-        }
-        fst.helpPostComplete();
-        snd.helpPostComplete();
         return dst;
     }
 
     /**
-     * Returns a new CompletableFuture that is completed when any of
-     * the given CompletableFutures complete, with the same result.
-     * Otherwise, if it completed exceptionally, the returned
-     * CompletableFuture also does so, with a CompletionException
-     * holding this exception as its cause.  If no CompletableFutures
-     * are provided, returns an incomplete CompletableFuture.
-     *
-     * @param cfs the CompletableFutures
-     * @return a new CompletableFuture that is completed with the
-     *         result or exception of any of the given CompletableFutures when
-     *         one completes
-     * @throws NullPointerException if the array or any of its elements are
-     *                              {@code null}
+     * Returns a result that will hold the optional value of the first result with a value that matches the predicate.
      */
-    public static CompletableFuture<Object> anyOf(CompletableFuture<?>... cfs) {
-        int len = cfs.length; // Same idea as allOf
-        if (len > 1)
-            return anyTree(cfs, 0, len - 1);
-        else {
-            CompletableFuture<Object> dst = new CompletableFuture<Object>();
-            CompletableFuture<?> f;
-            if (len == 0)
-                ; // skip
-            else if ((f = cfs[0]) == null)
-                throw new NullPointerException();
-            else {
-                ThenCopy<Object> d = null;
-                CompletionNode p = null;
-                Object r;
-                while ((r = f.result) == null) {
-                    if (d == null)
-                        d = new ThenCopy<Object>(f, dst);
-                    else if (p == null)
-                        p = new CompletionNode(d);
-                    else if (UNSAFE.compareAndSwapObject
-                            (f, COMPLETIONS, p.next = f.completions, p))
-                        break;
-                }
-                if (r != null && (d == null || d.compareAndSet(0, 1))) {
-                    Throwable ex;
-                    Object t;
-                    if (r instanceof AltResult) {
-                        ex = ((AltResult) r).ex;
-                        t = null;
-                    } else {
-                        ex = null;
-                        t = r;
-                    }
-                    dst.internalComplete(t, ex);
-                }
-                f.helpPostComplete();
-            }
-            return dst;
-        }
+    public static <U> CompletableFuture<Optional<U>> find(
+            Executor executor,
+            Predicate<? super U> predicate,
+            CompletableFuture<U>... results) {
+        // FIXME: Needs implementing.
+        return null;
     }
 
     /**
-     * Recursively constructs an Or'ed tree of CompletableFutures.
+     * A non-blocking fold over the specified results, with the start value supplied by the `zero` function.
+     * The fold is performed on the thread where the last result is completed.
+     * The result will be the first failure of any of the results, or any failure in the actual fold,
+     * or the product of the fold.
      */
-    private static CompletableFuture<Object> anyTree(CompletableFuture<?>[] cfs,
-                                                     int lo, int hi) {
-        CompletableFuture<?> fst, snd;
-        int mid = (lo + hi) >>> 1;
-        if ((fst = (lo == mid ? cfs[lo] : anyTree(cfs, lo, mid))) == null ||
-                (snd = (hi == mid + 1 ? cfs[hi] : anyTree(cfs, mid + 1, hi))) == null)
-            throw new NullPointerException();
-        CompletableFuture<Object> dst = new CompletableFuture<Object>();
-        OrCompletion d = null;
-        CompletionNode p = null, q = null;
-        Object r;
-        while ((r = fst.result) == null && (r = snd.result) == null) {
-            if (d == null)
-                d = new OrCompletion(fst, snd, dst);
-            else if (p == null)
-                p = new CompletionNode(d);
-            else if (q == null) {
-                if (UNSAFE.compareAndSwapObject
-                        (fst, COMPLETIONS, p.next = fst.completions, p))
-                    q = new CompletionNode(d);
-            } else if (UNSAFE.compareAndSwapObject
-                    (snd, COMPLETIONS, q.next = snd.completions, q))
-                break;
-        }
-        if ((r != null || (r = fst.result) != null ||
-                (r = snd.result) != null) &&
-                (d == null || d.compareAndSet(0, 1))) {
-            Throwable ex;
-            Object t;
-            if (r instanceof AltResult) {
-                ex = ((AltResult) r).ex;
-                t = null;
-            } else {
-                ex = null;
-                t = r;
-            }
-            dst.internalComplete(t, ex);
-        }
-        fst.helpPostComplete();
-        snd.helpPostComplete();
-        return dst;
+    public static <T, R> CompletableFuture<T> fold(Executor executor,
+                                                   Function<? super T, ? extends R> zero,
+                                                   BiFunction<? super R, ? super T, ? extends R> folder,
+                                                   CompletableFuture<T>... results) {
+        // FIXME: Needs implementing.
+        return null;
+    }
+
+    /**
+     * Initiates a fold over the supplied results where the fold-zero is the  value of the result
+     * that is completed first.
+     */
+    public static <T, R> CompletableFuture<T> reduce(Executor executor,
+                                                     BiFunction<? super R, ? super T, ? extends R> folder,
+                                                     CompletableFuture<T>... results) {
+        // FIXME: Needs implementing.
+        return null;
     }
 
     /* ------------- Control and status methods -------------- */
@@ -2123,37 +979,6 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     }
 
     /**
-     * Forcibly sets or resets the value subsequently returned by
-     * method {@link #get()} and related methods, whether or not
-     * already completed. This method is designed for use only in
-     * error recovery actions, and even in such situations may result
-     * in ongoing dependent completions using established versus
-     * overwritten outcomes.
-     *
-     * @param value the completion value
-     */
-    public void obtrudeValue(T value) {
-        result = (value == null) ? NIL : value;
-        postComplete();
-    }
-
-    /**
-     * Forcibly causes subsequent invocations of method {@link #get()}
-     * and related methods to throw the given exception, whether or
-     * not already completed. This method is designed for use only in
-     * recovery actions, and even in such situations may result in
-     * ongoing dependent completions using established versus
-     * overwritten outcomes.
-     *
-     * @param ex the exception
-     */
-    public void obtrudeException(Throwable ex) {
-        if (ex == null) throw new NullPointerException();
-        result = new AltResult(ex);
-        postComplete();
-    }
-
-    /**
      * Returns the estimated number of CompletableFutures whose
      * completions are awaiting completion of this CompletableFuture.
      * This method is designed for use in monitoring system state, not
@@ -2189,6 +1014,48 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
                         (((r instanceof AltResult) && ((AltResult) r).ex != null) ?
                                 "[Completed exceptionally]" :
                                 "[Completed normally]"));
+    }
+
+    /* ------------- Coercion -------------- */
+
+    /**
+     * Return a CompletableFuture representing the {@link DeferredResult}. Note that completing the returned
+     * CompletableFuture will not complete a DeferredResult, as the latter is not completable, unless the
+     * DeferredResult passed in is a CompletableFuture in the first instance.
+     *
+     * @param dr  the {@link DeferredResult}
+     * @param <U> The value type of the {@link DeferredResult}
+     * @return a CompletableFuture for the {@link DeferredResult}
+     */
+    public static <U> CompletableFuture<U> completableFuture(DeferredResult<U> dr) {
+        if (dr instanceof CompletableFuture) return (CompletableFuture) dr;
+        final CompletableFuture<U> cf = new CompletableFuture<>();
+        dr.onComplete(() -> {
+            try {
+                Optional<U> value = dr.value();
+                cf.complete(value.get());
+            } catch (Throwable ex) {
+                cf.completeExceptionally(ex);
+            }
+        });
+        return cf;
+    }
+
+    /**
+     * Return a CompletableFuture representing the {@link DeferredResult}. Note that completing the returned
+     * CompletableFuture will not complete a DeferredResult, as the latter is not completable, unless the
+     * DeferredResult passed in is a CompletableFuture in the first instance.
+     *
+     * @param drs the {@link DeferredResult}s
+     * @param <U> The value type of the {@link DeferredResult}
+     * @return an array of CompletableFutures for the {@link DeferredResult}s
+     */
+    public static <U> CompletableFuture<U>[] completableFutures(DeferredResult<U>... drs) {
+        CompletableFuture<U>[] cfs = new CompletableFuture[drs.length];
+        for (int i = 0; i < drs.length; ++i) {
+            cfs[i] = completableFuture(drs[i]);
+        }
+        return cfs;
     }
 
     // Unsafe mechanics

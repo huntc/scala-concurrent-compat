@@ -32,19 +32,22 @@
  */
 
 import com.typesafe.java.util.concurrent.CompletableFuture;
+import com.typesafe.java.util.concurrent.DeferredResult;
 
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
+import static com.typesafe.java.util.concurrent.CompletableFuture.completableFuture;
 import static java.util.concurrent.TimeUnit.*;
 
 public class Basic {
 
-    static void checkCompletedNormally(CompletableFuture<?> cf, Object value) {
-        checkCompletedNormally(cf, value == null ? null : new Object[]{value});
+    static void checkCompletedNormally(DeferredResult<?> dr, Object value) {
+        checkCompletedNormally(dr, value == null ? null : new Object[]{value});
     }
 
-    static void checkCompletedNormally(CompletableFuture<?> cf, Object[] values) {
+    static void checkCompletedNormally(DeferredResult<?> dr, Object[] values) {
+        CompletableFuture cf = completableFuture(dr);
         try {
             equalAnyOf(cf.join(), values);
         } catch (Throwable x) {
@@ -74,14 +77,15 @@ public class Basic {
                 "Expected completeExceptionally() to fail");
     }
 
-    static <T> void checkCompletedExceptionally(CompletableFuture<T> cf)
+    static <T> void checkCompletedExceptionally(DeferredResult<T> dr)
             throws Exception {
-        checkCompletedExceptionally(cf, false);
+        checkCompletedExceptionally(dr, false);
     }
 
     @SuppressWarnings("unchecked")
-    static <T> void checkCompletedExceptionally(CompletableFuture<T> cf, boolean cancelled)
+    static <T> void checkCompletedExceptionally(DeferredResult<T> dr, boolean cancelled)
             throws Exception {
+        CompletableFuture cf = completableFuture(dr);
         try {
             cf.join();
             fail("Excepted exception to be thrown");
@@ -139,25 +143,25 @@ public class Basic {
         // supplier tests
         //----------------------------------------------------------------
         try {
-            CompletableFuture<String> cfs;
-            CompletableFuture<Void> cfv;
+            DeferredResult<String> drs;
+            DeferredResult<Void> drv;
 
-            cfs = CompletableFuture.of(() -> "a test string");
-            checkCompletedNormally(cfs, cfs.join());
+            drs = DeferredResult.of(() -> "a test string");
+            checkCompletedNormally(drs, completableFuture(drs).join());
 
-            cfv = CompletableFuture.of(() -> {
+            drv = DeferredResult.of(() -> {
             });
-            checkCompletedNormally(cfv, cfv.join());
+            checkCompletedNormally(drv, completableFuture(drv).join());
 
-            cfv = CompletableFuture.of((Supplier<Void>) () -> {
+            drv = DeferredResult.of((Supplier<Void>) () -> {
                 throw new RuntimeException();
             });
-            checkCompletedExceptionally(cfv);
+            checkCompletedExceptionally(drv);
 
-            cfv = CompletableFuture.of((Runnable) () -> {
+            drv = DeferredResult.of((Runnable) () -> {
                 throw new RuntimeException();
             });
-            checkCompletedExceptionally(cfv);
+            checkCompletedExceptionally(drv);
 
         } catch (Throwable t) {
             unexpected(t);

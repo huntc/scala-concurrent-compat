@@ -6,8 +6,8 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.*;
 
 /**
- * A DeferredResult is similar to {@link Future} in that it represents the result of an asynchronous
- * computation. Unlike {@link Future} DeferredResults can be observed and actions are provided
+ * A DeferredResult is similar to {@link java.util.concurrent.Future} in that it represents the result of an asynchronous
+ * computation. Unlike {@link java.util.concurrent.Future} DeferredResults can be observed and actions are provided
  * to execute when the results become available.
  * </p>
  * Actions are performed in the {@link ForkJoinPool#commonPool()} unless an
@@ -19,6 +19,151 @@ import java.util.function.*;
  * @since 1.8
  */
 public interface DeferredResult<T> {
+
+    /* Creational methods */
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the {@link ForkJoinPool#commonPool()} with
+     * the value obtained by calling the given Supplier.
+     *
+     * @param supplier a function returning the value to be used
+     *                 to complete the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    static <U> DeferredResult<U> of(Supplier<U> supplier) {
+        return of(supplier, ForkJoinPool.commonPool());
+    }
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the given executor with the value obtained
+     * by calling the given Supplier.
+     *
+     * @param supplier a function returning the value to be used
+     *                 to complete the returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    static <U> DeferredResult<U> of(Supplier<U> supplier,
+                                    Executor executor) {
+        return CompletableFuture.of(supplier, executor);
+    }
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the {@link ForkJoinPool#commonPool()} after
+     * it runs the given action.
+     *
+     * @param runnable the action to run before completing the
+     *                 returned DeferredResult
+     * @return the new DeferredResult
+     */
+    static DeferredResult<Void> of(Runnable runnable) {
+        return of(runnable, ForkJoinPool.commonPool());
+    }
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the given executor after it runs the given
+     * action.
+     *
+     * @param runnable the action to run before completing the
+     *                 returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    static DeferredResult<Void> of(Runnable runnable,
+                                   Executor executor) {
+        return CompletableFuture.of(runnable, executor);
+    }
+
+    /**
+     * Returns a new DeferredResult that is already completed with
+     * the given value.
+     *
+     * @param value the value
+     * @return the completed DeferredResult
+     */
+    static <U> DeferredResult<U> successful(U value) {
+        return CompletableFuture.successful(value);
+    }
+
+    /**
+     * Returns a new DeferredResult that is already completed with
+     * a throwable.
+     *
+     * @param value the throwable
+     * @return the completed CompletableFuture
+     */
+    static DeferredResult<Throwable> failed(Throwable value) {
+        return CompletableFuture.failed(value);
+    }
+
+    /* Traversing methods */
+
+    /**
+     * Returns a result to the value of the first result in the list that is completed.
+     */
+    static <U> DeferredResult<U> firstCompletedOf(DeferredResult<U>... results) {
+        return firstCompletedOf(ForkJoinPool.commonPool(), results);
+    }
+
+    static <U> DeferredResult<U> firstCompletedOf(Executor executor, DeferredResult<U>... results) {
+        return CompletableFuture.firstCompletedOf(executor, CompletableFuture.completableFutures(results));
+    }
+
+    /**
+     * Returns a result that will hold the optional value of the first result with a value that matches the predicate.
+     */
+    static <U> DeferredResult<Optional<U>> find(
+            Predicate<? super U> predicate,
+            DeferredResult<U>... results) {
+        return find(ForkJoinPool.commonPool(), predicate, results);
+    }
+
+    static <U> DeferredResult<Optional<U>> find(
+            Executor executor,
+            Predicate<? super U> predicate,
+            DeferredResult<U>... results) {
+        return CompletableFuture.find(executor, predicate, CompletableFuture.completableFutures(results));
+    }
+
+    /**
+     * A non-blocking fold over the specified results, with the start value supplied by the `zero` function.
+     * The fold is performed on the thread where the last result is completed.
+     * The result will be the first failure of any of the results, or any failure in the actual fold,
+     * or the product of the fold.
+     */
+    static <T, R> DeferredResult<T> fold(Function<? super T, ? extends R> zero,
+                                         BiFunction<? super R, ? super T, ? extends R> folder,
+                                         DeferredResult<T>... results) {
+        return fold(ForkJoinPool.commonPool(), zero, folder, results);
+    }
+
+    static <T, R> DeferredResult<T> fold(Executor executor,
+                                         Function<? super T, ? extends R> zero,
+                                         BiFunction<? super R, ? super T, ? extends R> folder,
+                                         DeferredResult<T>... results) {
+        return CompletableFuture.fold(executor, zero, folder, CompletableFuture.completableFutures(results));
+    }
+
+    /**
+     * Initiates a fold over the supplied results where the fold-zero is the  value of the result
+     * that is completed first.
+     */
+    static <T, R> DeferredResult<T> reduce(BiFunction<? super R, ? super T, ? extends R> folder,
+                                           DeferredResult<T>... results) {
+        return reduce(ForkJoinPool.commonPool(), folder, results);
+    }
+
+    static <T, R> DeferredResult<T> reduce(Executor executor,
+                                           BiFunction<? super R, ? super T, ? extends R> folder,
+                                           DeferredResult<T>... results) {
+        return CompletableFuture.reduce(executor, folder, CompletableFuture.completableFutures(results));
+    }
+
+    /* Instance methods */
 
     /**
      * When this result is completed successfully (i.e. with a value),
@@ -72,7 +217,8 @@ public interface DeferredResult<T> {
     boolean isCompleted();
 
     /**
-     * The value of this current result.
+     * The value of this current result if or an exception will be thrown if
+     * the result has been failed.
      */
     Optional<T> value();
 
