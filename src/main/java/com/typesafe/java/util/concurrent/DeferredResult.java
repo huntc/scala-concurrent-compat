@@ -1,10 +1,7 @@
 package com.typesafe.java.util.concurrent;
 
 import java.util.concurrent.Executor;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 
 /**
  * Similar to a {@link java.util.concurrent.Future} in that it has a result determined at some point in the future.
@@ -15,6 +12,114 @@ import java.util.function.Function;
  * @since 1.8
  */
 public interface DeferredResult<T> {
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the {@link ForkJoinPool#commonPool()} with
+     * the value obtained by calling the given Supplier.
+     *
+     * @param supplier a function returning the value to be used
+     * to complete the returned DeferredResult
+     * @return the new DeferredResult
+     */
+    static <U> DeferredResult<U> supplyAsync(Supplier<U> supplier) {
+        return CompletableFuture.supplyAsync(supplier);
+    }
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the given executor with the value obtained
+     * by calling the given Supplier.
+     *
+     * @param supplier a function returning the value to be used
+     * to complete the returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    static <U> DeferredResult<U> supplyAsync(Supplier<U> supplier,
+                                                    Executor executor) {
+        return CompletableFuture.supplyAsync(supplier, executor);
+    }
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the {@link ForkJoinPool#commonPool()} after
+     * it runs the given action.
+     *
+     * @param runnable the action to run before completing the
+     * returned DeferredResult
+     * @return the new DeferredResult
+     */
+    static DeferredResult<Void> runAsync(Runnable runnable) {
+        return CompletableFuture.runAsync(runnable);
+    }
+
+    /**
+     * Returns a new DeferredResult that is asynchronously completed
+     * by a task running in the given executor after it runs the given
+     * action.
+     *
+     * @param runnable the action to run before completing the
+     * returned DeferredResult
+     * @param executor the executor to use for asynchronous execution
+     * @return the new DeferredResult
+     */
+    static DeferredResult<Void> runAsync(Runnable runnable,
+                                                Executor executor) {
+        return CompletableFuture.runAsync(runnable, executor);
+    }
+
+    /**
+     * Returns a new DeferredResult that is already completed with
+     * the given value.
+     *
+     * @param value the value
+     * @return the completed DeferredResult
+     */
+    static <U> DeferredResult<U> completedFuture(U value) {
+        return CompletableFuture.completedFuture(value);
+    }
+
+    /**
+     * Returns a new DeferredResult that is completed when all of
+     * the given DeferredResults complete.  If any of the given
+     * DeferredResults complete exceptionally, then the returned
+     * DeferredResult also does so, with a DeferredResult
+     * holding this exception as its cause.  Otherwise, the results,
+     * if any, of the given DeferredResult are not reflected in
+     * the returned DeferredResult, but may be obtained by
+     * inspecting them individually. If no DeferredResults are
+     * provided, returns a DeferredResult completed with the value
+     * {@code null}.
+     *
+     * @param drs the DeferredResults
+     * @return a new DeferredResult that is completed when all of the
+     * given DeferredResults complete
+     * @throws NullPointerException if the array or any of its elements are
+     * {@code null}
+     */
+    static DeferredResult<Void> allOf(DeferredResult<?>... drs) {
+        return CompletableFuture.allOf(CompletableFuture.completableFutures(drs));
+    }
+
+    /**
+     * Returns a new DeferredResult that is completed when any of
+     * the given DeferredResults complete, with the same result.
+     * Otherwise, if it completed exceptionally, the returned
+     * DeferredResult also does so, with a DeferredResult
+     * holding this exception as its cause.  If no DeferredResults
+     * are provided, returns an incomplete CompletableFuture.
+     *
+     * @param drs the DeferredResults
+     * @return a new DeferredResult that is completed with the
+     * result or exception of any of the given DeferredResults when
+     * one completes
+     * @throws NullPointerException if the array or any of its elements are
+     * {@code null}
+     */
+    static DeferredResult<Object> anyOf(DeferredResult<?>... drs) {
+        return CompletableFuture.anyOf(CompletableFuture.completableFutures(drs));
+    }
+
     /**
      * Returns the result value (or throws any encountered exception)
      * if completed, else returns the given valueIfAbsent.

@@ -3331,7 +3331,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      */
     public static <U> CompletableFuture<U> completableFuture(DeferredResult<U> dr) {
         if (dr instanceof CompletableFuture) return (CompletableFuture) dr;
-        CompletableFuture<U> cf = new CompletableFuture<>();
+        final CompletableFuture<U> cf = new CompletableFuture<>();
         dr.handle((value, ex) -> {
             if (value == null) {
                 cf.completeExceptionally(ex);
@@ -3341,6 +3341,22 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
             return cf;
         });
         return cf;
+    }
+
+    /**
+     * Return a CompletableFuture representing the {@link DeferredResult}. Note that completing the returned
+     * CompletableFuture will not complete a DeferredResult, as the latter is not completable, unless the
+     * DeferredResult passed in is a CompletableFuture in the first instance.
+     *
+     * @param drs the {@link DeferredResult}s
+     * @return an array of CompletableFutures for the {@link DeferredResult}s
+     */
+    public static CompletableFuture<Object>[] completableFutures(DeferredResult<?>... drs) {
+        CompletableFuture<Object>[] cfs = new CompletableFuture[drs.length];
+        for (int i = 0; i < drs.length; ++i) {
+            cfs[i] = (CompletableFuture<Object>) completableFuture(drs[i]);
+        }
+        return cfs;
     }
 
     // Unsafe mechanics
