@@ -597,13 +597,13 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      *
      * @param supplier a function returning the value to be used
      *                 to complete the returned CompletableFuture
-     * @return the new DeferredResult
+     * @return the new CompletableFuture
      */
-    public static <U> DeferredResult<U> of(Supplier<U> supplier) {
+    public static <U> CompletableFuture<U> of(Supplier<U> supplier) {
         return of(supplier, ForkJoinPool.commonPool());
     }
 
-    public static <U> DeferredResult<U> of(Supplier<U> supplier,
+    public static <U> CompletableFuture<U> of(Supplier<U> supplier,
                                            Executor executor) {
         if (executor == null || supplier == null)
             throw new NullPointerException();
@@ -620,13 +620,13 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * @param runnable the action to run before completing the
      *                 returned CompletableFuture
      * @param executor the executor to use for asynchronous execution
-     * @return the new DeferredResult
+     * @return the new CompletableFuture
      */
-    public static DeferredResult<Void> of(Runnable runnable) {
+    public static CompletableFuture<Void> of(Runnable runnable) {
         return of(runnable, ForkJoinPool.commonPool());
     }
 
-    public static DeferredResult<Void> of(Runnable runnable,
+    public static CompletableFuture<Void> of(Runnable runnable,
                                           Executor executor) {
         if (executor == null || runnable == null)
             throw new NullPointerException();
@@ -640,9 +640,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * the given value.
      *
      * @param value the value
-     * @return the completed DeferredResult
+     * @return the completed CompletableFuture
      */
-    public static <U> DeferredResult<U> successful(U value) {
+    public static <U> CompletableFuture<U> successful(U value) {
         CompletableFuture<U> f = new CompletableFuture<U>();
         f.result = (value == null) ? NIL : value;
         return f;
@@ -653,9 +653,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * a throwable.
      *
      * @param value the throwable
-     * @return the completed DeferredResult
+     * @return the completed CompletableFuture
      */
-    public static DeferredResult<Throwable> failed(Throwable value) {
+    public static CompletableFuture<Throwable> failed(Throwable value) {
         CompletableFuture<Throwable> f = new CompletableFuture<>();
         f.result = (value == null) ? NIL : new AltResult(value);
         return f;
@@ -831,7 +831,7 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     }
 
     @Override
-    public DeferredResult<Throwable> failed() {
+    public CompletableFuture<Throwable> failed() {
         final CompletableFuture<Throwable> dst = new CompletableFuture<>();
         onComplete(() -> {
             Object r;
@@ -851,47 +851,47 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
     }
 
     @Override
-    public <R> DeferredResult<R> transform(Function<? super T, ? extends R> transformer, Function<? super Throwable, ? super Throwable> failure, Executor executor) {
+    public <R> CompletableFuture<R> transform(Function<? super T, ? extends R> transformer, Function<? super Throwable, ? super Throwable> failure, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public <R> DeferredResult<R> map(Function<? super T, ? extends R> mapper, Executor executor) {
+    public <R> CompletableFuture<R> map(Function<? super T, ? extends R> mapper, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public <R> DeferredResult<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper, Executor executor) {
+    public <R> CompletableFuture<R> flatMap(Function<? super T, ? extends DeferredResult<? extends R>> mapper, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public DeferredResult<T> filter(Predicate<? super T> predicate, Executor executor) {
+    public CompletableFuture<T> filter(Predicate<? super T> predicate, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public <R> DeferredResult<R> collect(Function<? super T, Optional<? extends R>> collector, Executor executor) {
+    public <R> CompletableFuture<R> collect(Function<? super T, Optional<? extends R>> collector, Executor executor) {
         return null;
     }
 
     @Override
-    public <R> DeferredResult<R> recover(Function<? super Throwable, Optional<? extends R>> recovery, Executor executor) {
+    public <R> CompletableFuture<R> recover(Function<? super Throwable, Optional<? extends R>> recovery, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public <R> DeferredResult<R> recoverWith(Function<? super Throwable, Optional<DeferredResult<? extends R>>> recovery, Executor executor) {
+    public <R> CompletableFuture<R> recoverWith(Function<? super Throwable, Optional<DeferredResult<? extends R>>> recovery, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public <R extends T> DeferredResult<R> fallbackTo(Function<? super T, ? extends R> fallback) {
+    public <R extends T> CompletableFuture<R> fallbackTo(Function<? super T, ? extends R> fallback) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public DeferredResult<T> andThen(Consumer<? super T> action, Executor executor) {
+    public CompletableFuture<T> andThen(Consumer<? super T> action, Executor executor) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
