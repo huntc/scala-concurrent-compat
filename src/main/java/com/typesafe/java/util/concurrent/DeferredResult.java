@@ -14,17 +14,6 @@ import java.util.function.*;
 public interface DeferredResult<T> {
 
     /**
-     * Returns a new DeferredResult that is already completed with
-     * the given value.
-     *
-     * @param value the value
-     * @return the completed DeferredResult
-     */
-    static <U> DeferredResult<U> completedFuture(U value) {
-        return CompletableFuture.completedFuture(value);
-    }
-
-    /**
      * Returns a new DeferredResult that is completed when all of
      * the given DeferredResults complete.  If any of the given
      * DeferredResults complete exceptionally, then the returned

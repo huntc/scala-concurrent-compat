@@ -1479,9 +1479,9 @@ public class CompletableFuture<T> implements Future<T>, DeferredResult<T> {
      * the given value.
      *
      * @param value the value
-     * @return the completed CompletableFuture
+     * @return the completed DeferredResult
      */
-    public static <U> CompletableFuture<U> completedFuture(U value) {
+    public static <U> DeferredResult<U> completedFuture(U value) {
         CompletableFuture<U> f = new CompletableFuture<U>();
         f.result = (value == null) ? NIL : value;
         return f;
