@@ -26,7 +26,7 @@ public class SomeTest {
             return new OnSuccess(body);
         }
 
-        final Procedure body;
+        final Procedure<T> body;
 
         protected OnSuccess(final Procedure<T> body) {
             this.body = body;
